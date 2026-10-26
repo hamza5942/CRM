@@ -1,0 +1,441 @@
+require('dotenv').config();
+
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  Tray,
+  nativeImage,
+  powerMonitor,
+  safeStorage,
+  ipcMain,
+} = require('electron');
+
+const HEARTBEAT_INTERVAL_MS = 60_000;
+const IDLE_THRESHOLD_SECONDS = Math.max(
+  1,
+  Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 300
+);
+const API_BASE_URL = (process.env.API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+const API_TIMEOUT_MS = 10_000;
+const SESSION_FILE = path.join(app.getPath('userData'), 'session.json');
+
+let mainWindow;
+let tray;
+let heartbeatTimer;
+let session = null;
+let tracking = false;
+let forcedStatus = null;
+let lastError = '';
+let isQuitting = false;
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: API_TIMEOUT_MS,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+function getCurrentStatus() {
+  if (forcedStatus) return forcedStatus;
+  try {
+    return powerMonitor.getSystemIdleTime() >= IDLE_THRESHOLD_SECONDS ? 'idle' : 'active';
+  } catch (error) {
+    console.error('Unable to read system idle time:', error);
+    return 'offline';
+  }
+}
+
+function getPublicState() {
+  return {
+    authenticated: Boolean(session),
+    user: session ? session.user : null,
+    tracking,
+    status: session && tracking ? getCurrentStatus() : 'offline',
+    idleThresholdSeconds: IDLE_THRESHOLD_SECONDS,
+    lastError,
+  };
+}
+
+function publishState() {
+  const state = getPublicState();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('tracker:state', state);
+  }
+  updateTrayMenu();
+}
+
+function saveSession() {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure local token storage is unavailable on this computer.');
+  }
+
+  const serialized = JSON.stringify({
+    token: session.token,
+    expiresAt: session.expiresAt,
+    user: session.user,
+    tracking,
+  });
+  const encrypted = safeStorage.encryptString(serialized).toString('base64');
+  const tempFile = `${SESSION_FILE}.tmp`;
+  fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true });
+  fs.writeFileSync(tempFile, JSON.stringify({ encrypted }), { mode: 0o600 });
+  fs.renameSync(tempFile, SESSION_FILE);
+}
+
+function clearSavedSession() {
+  try {
+    fs.rmSync(SESSION_FILE, { force: true });
+  } catch (error) {
+    console.error('Unable to remove saved session:', error);
+  }
+}
+
+function clearSession() {
+  session = null;
+  tracking = false;
+  clearSavedSession();
+  publishState();
+}
+
+function restoreSession() {
+  if (!fs.existsSync(SESSION_FILE)) return;
+
+  try {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('Secure local token storage is unavailable on this computer.');
+    }
+    const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    const serialized = safeStorage.decryptString(Buffer.from(saved.encrypted, 'base64'));
+    const data = JSON.parse(serialized);
+    if (
+      typeof data.token !== 'string' ||
+      typeof data.expiresAt !== 'number' ||
+      !data.user ||
+      typeof data.user.id !== 'string' ||
+      data.user.role !== 'employee'
+    ) {
+      throw new Error('Saved session data is invalid.');
+    }
+    if (data.expiresAt <= Date.now()) {
+      clearSavedSession();
+      return;
+    }
+
+    session = {
+      token: data.token,
+      expiresAt: data.expiresAt,
+      user: data.user,
+    };
+    tracking = Boolean(data.tracking);
+  } catch (error) {
+    console.error('Unable to restore saved session:', error);
+    clearSavedSession();
+    lastError = 'Your saved login could not be restored. Please sign in again.';
+  }
+}
+
+function authenticatedRequest(config) {
+  if (!session) throw new Error('Sign in to continue.');
+  if (session.expiresAt <= Date.now()) {
+    clearSession();
+    throw new Error('Your login has expired. Please sign in again.');
+  }
+  return api.request({
+    ...config,
+    headers: {
+      ...config.headers,
+      Authorization: `Bearer ${session.token}`,
+    },
+  });
+}
+
+async function sendHeartbeat(status = getCurrentStatus()) {
+  if (!session || !tracking) return;
+  const heartbeatSession = session;
+  try {
+    await authenticatedRequest({
+      method: 'post',
+      url: '/attendance/heartbeat',
+      data: {
+        userId: session.user.id,
+        status,
+        timestamp: new Date().toISOString(),
+      },
+    });
+    if (lastError) lastError = '';
+    publishState();
+  } catch (error) {
+    if (session !== heartbeatSession) return;
+    const statusCode = error.response && error.response.status;
+    const message = error.response && error.response.data && error.response.data.error;
+    if (statusCode === 401) {
+      clearSession();
+      lastError = 'Your login has expired. Please sign in again.';
+    } else if (statusCode === 409) {
+      tracking = false;
+      try {
+        saveSession();
+      } catch (saveError) {
+        console.error('Unable to save tracking state:', saveError);
+      }
+      lastError = message || 'Attendance is not open. Start tracking again after clocking in.';
+    } else {
+      lastError = message || error.message || 'Unable to send the tracking heartbeat.';
+      console.error('Unable to send heartbeat:', error.message);
+    }
+    publishState();
+  }
+}
+
+function startHeartbeatTimer() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    void sendHeartbeat();
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+function createWindow(showWindow = true) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+
+  mainWindow = new BrowserWindow({
+    width: 390,
+    height: 510,
+    minWidth: 350,
+    minHeight: 450,
+    resizable: true,
+    title: 'Employee Tracker',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.once('ready-to-show', () => {
+    if (showWindow) mainWindow.show();
+    publishState();
+  });
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+function makeTrayIcon() {
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
+    '<rect x="2" y="2" width="28" height="28" rx="8" fill="#2563eb"/>',
+    '<circle cx="16" cy="16" r="8" fill="none" stroke="#fff" stroke-width="3"/>',
+    '<path d="M16 11v5l4 2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
+    '</svg>',
+  ].join('');
+  return nativeImage.createFromDataURL(
+    `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
+  );
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  const stateLabel = session
+    ? tracking
+      ? `Tracking: ${getCurrentStatus()}`
+      : 'Signed in — tracking stopped'
+    : 'Not signed in';
+
+  tray.setToolTip(`Employee Tracker — ${stateLabel}`);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: stateLabel, enabled: false },
+      { type: 'separator' },
+      { label: 'Open Employee Tracker', click: createWindow },
+      {
+        label: 'Quit',
+        click: () => {
+          void quitApplication();
+        },
+      },
+    ])
+  );
+}
+
+async function login({ email, password }) {
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+    throw new Error('Enter your work email and password.');
+  }
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure local token storage is unavailable on this computer.');
+  }
+
+  const response = await api.post('/auth/login', {
+    email: email.trim(),
+    password,
+  });
+  const { token, expiresIn, user } = response.data;
+  if (
+    typeof token !== 'string' ||
+    !user ||
+    typeof user.id !== 'string' ||
+    user.role !== 'employee'
+  ) {
+    throw new Error('This desktop app is for employee accounts only.');
+  }
+
+  const durationMatch = /^(\d+)(s|m|h|d)$/.exec(expiresIn || '1h');
+  if (!durationMatch) throw new Error('The server returned an unsupported token expiry.');
+  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[durationMatch[2]];
+  session = {
+    token,
+    expiresAt: Date.now() + Number(durationMatch[1]) * multiplier,
+    user,
+  };
+  tracking = false;
+  lastError = '';
+  try {
+    saveSession();
+  } catch (error) {
+    clearSession();
+    throw error;
+  }
+  publishState();
+  return getPublicState();
+}
+
+async function beginTracking() {
+  if (!session) throw new Error('Sign in before starting tracking.');
+  if (tracking) return getPublicState();
+
+  try {
+    await authenticatedRequest({ method: 'post', url: '/attendance/clock-in' });
+  } catch (error) {
+    const message = error.response && error.response.data && error.response.data.error;
+    throw new Error(message || error.message || 'Unable to clock in.');
+  }
+
+  tracking = true;
+  lastError = '';
+  try {
+    saveSession();
+  } catch (error) {
+    tracking = false;
+    throw error;
+  }
+  publishState();
+  void sendHeartbeat();
+  return getPublicState();
+}
+
+async function endTracking() {
+  if (!session || !tracking) return getPublicState();
+  try {
+    await authenticatedRequest({ method: 'post', url: '/attendance/clock-out' });
+  } catch (error) {
+    const message = error.response && error.response.data && error.response.data.error;
+    throw new Error(message || error.message || 'Unable to clock out.');
+  }
+
+  tracking = false;
+  lastError = '';
+  saveSession();
+  publishState();
+  return getPublicState();
+}
+
+async function logout() {
+  let clockOutWarning = '';
+  if (session && tracking) {
+    try {
+      await authenticatedRequest({ method: 'post', url: '/attendance/clock-out' });
+    } catch (error) {
+      const message = error.response && error.response.data && error.response.data.error;
+      clockOutWarning = `You were signed out, but clock-out failed: ${message || error.message}`;
+    }
+  }
+  clearSession();
+  lastError = clockOutWarning;
+  publishState();
+  return getPublicState();
+}
+
+async function quitApplication() {
+  if (isQuitting) return;
+  isQuitting = true;
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (session && tracking) {
+    try {
+      await sendHeartbeat('offline');
+    } catch (error) {
+      console.error('Unable to send final offline heartbeat:', error);
+    }
+  }
+  app.quit();
+}
+
+function configureAutoLaunch() {
+  const enabled = process.env.AUTO_LAUNCH === 'true';
+  if (process.defaultApp && process.argv.length >= 2) return;
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    openAsHidden: true,
+    args: enabled ? ['--hidden'] : [],
+  });
+}
+
+ipcMain.handle('tracker:get-state', () => getPublicState());
+ipcMain.handle('tracker:login', async (_event, credentials) => login(credentials));
+ipcMain.handle('tracker:start', () => beginTracking());
+ipcMain.handle('tracker:stop', () => endTracking());
+ipcMain.handle('tracker:logout', () => logout());
+
+app.whenReady().then(() => {
+  restoreSession();
+  configureAutoLaunch();
+  tray = new Tray(makeTrayIcon());
+  tray.on('click', () => createWindow());
+  updateTrayMenu();
+  startHeartbeatTimer();
+
+  powerMonitor.on('lock-screen', () => {
+    forcedStatus = 'idle';
+    void sendHeartbeat('idle');
+    publishState();
+  });
+  powerMonitor.on('unlock-screen', () => {
+    forcedStatus = null;
+    publishState();
+    void sendHeartbeat();
+  });
+  powerMonitor.on('suspend', () => {
+    forcedStatus = 'offline';
+    void sendHeartbeat('offline');
+    publishState();
+  });
+  powerMonitor.on('resume', () => {
+    forcedStatus = null;
+    publishState();
+    void sendHeartbeat();
+  });
+
+  createWindow(!process.argv.includes('--hidden'));
+  if (tracking) void sendHeartbeat();
+});
+
+app.on('activate', createWindow);
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+});

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Employee Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div class="brand-mark" aria-hidden="true">T</div>
+        <div>
+          <h1>Employee Tracker</h1>
+          <p class="subtitle">Work status and attendance</p>
+        </div>
+      </header>
+
+      <section id="login-view" class="card" hidden>
+        <h2>Sign in</h2>
+        <form id="login-form">
+          <label for="email">Work email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required />
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+          <button class="button primary" type="submit">Sign in</button>
+        </form>
+      </section>
+
+      <section id="status-view" class="card" hidden>
+        <div class="welcome">
+          <div>
+            <p class="eyebrow">SIGNED IN AS</p>
+            <h2 id="employee-name">Employee</h2>
+            <p id="employee-email" class="subtitle"></p>
+          </div>
+          <span id="status-pill" class="status-pill">Offline</span>
+        </div>
+        <div class="status-panel">
+          <span class="status-dot" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">CURRENT STATUS</p>
+            <p id="current-status" class="current-status">Offline</p>
+            <p id="status-detail" class="subtitle"></p>
+          </div>
+        </div>
+        <button id="tracking-button" class="button primary" type="button">Start tracking</button>
+        <button id="logout-button" class="button secondary" type="button">Sign out</button>
+      </section>
+
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+      <p class="footnote">Closing this window keeps the tracker in your system tray.</p>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>
