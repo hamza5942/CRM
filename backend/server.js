@@ -3,6 +3,7 @@ require('dotenv').config();
 const cors = require('cors');
 const express = require('express');
 const mongoose = require('mongoose');
+const { connectToDatabase } = require('./db');
 
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -67,14 +68,11 @@ app.use((error, _req, res, _next) => {
 });
 
 async function startServer() {
-  if (!process.env.MONGO_URI) {
-    throw new Error('MONGO_URI is required to start the backend.');
-  }
   if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET, 'utf8') < 32) {
     throw new Error('JWT_SECRET must be set to a secret containing at least 32 bytes.');
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
+  await connectToDatabase();
   console.log(`Connected to MongoDB database "${mongoose.connection.name}"`);
 
   const port = Number(process.env.PORT) || 5000;
