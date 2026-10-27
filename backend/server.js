@@ -30,6 +30,18 @@ app.use(
 );
 app.use(express.json({ limit: '100kb' }));
 
+function validateEnvironment() {
+  if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET, 'utf8') < 32) {
+    throw new Error('JWT_SECRET must be set to a secret containing at least 32 bytes.');
+  }
+}
+
+app.use(async (_req, _res, next) => {
+  validateEnvironment();
+  await connectToDatabase();
+  next();
+});
+
 app.get('/', (_req, res) => {
   res.json({ message: 'CRM & Attendance API is running.' });
 });
@@ -68,10 +80,7 @@ app.use((error, _req, res, _next) => {
 });
 
 async function startServer() {
-  if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET, 'utf8') < 32) {
-    throw new Error('JWT_SECRET must be set to a secret containing at least 32 bytes.');
-  }
-
+  validateEnvironment();
   await connectToDatabase();
   console.log(`Connected to MongoDB database "${mongoose.connection.name}"`);
 
@@ -108,4 +117,5 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, startServer };
+module.exports = app;
+module.exports.startServer = startServer;

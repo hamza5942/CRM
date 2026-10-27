@@ -36,7 +36,7 @@ Set `CORS_ORIGINS` to a comma-separated list of allowed browser origins. Request
 
 ## Deploy the API to Vercel
 
-The API is exposed as a Vercel Node.js Function in `api/[...path].js`. The function connects to MongoDB before passing each request to the existing Express app; warm function instances reuse the Mongoose connection. `npm start` remains available for local or traditional server hosting.
+The Express app is exported from `server.js` for Vercel's Express runtime, and `api/[...path].js` also exposes the existing `/api` routes as a catch-all Node.js Function. The app validates its runtime configuration and connects to MongoDB when handling a request; warm function instances reuse the Mongoose connection. `npm start` remains available for local or traditional server hosting.
 
 1. Import the repository into Vercel and set the project's **Root Directory** to `backend`.
 2. Add these environment variables to the Vercel project:
