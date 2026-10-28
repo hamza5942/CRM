@@ -32,7 +32,7 @@ Login at `POST /api/auth/login` with `{ "email": "...", "password": "..." }`. Se
 
 Attendance dates use UTC calendar days. Active and idle summary minutes count the corresponding heartbeat samples, which are expected at approximately one-minute intervals.
 
-Set `CORS_ORIGINS` to a comma-separated list of allowed browser origins. Requests without an `Origin` header are allowed for non-browser clients.
+Set `CORS_ORIGINS` to a comma-separated list of allowed browser origins. If it is unset, the API allows `https://crm-frontend-cyan-six.vercel.app`, `http://localhost:3000`, and `http://localhost:5173`. Requests without an `Origin` header are allowed for non-browser clients. The CORS middleware handles preflight `OPTIONS` requests.
 
 ## Deploy the API to Vercel
 
@@ -42,7 +42,7 @@ The Express app is exported from `server.js` for Vercel's Express runtime, and `
 2. Add these environment variables to the Vercel project:
    - `MONGO_URI` — a production MongoDB connection string. Configure the MongoDB provider's network access to allow connections from Vercel.
    - `JWT_SECRET` — a random secret containing at least 32 bytes.
-   - `CORS_ORIGINS` — the exact frontend origin, such as `https://your-app.vercel.app`. Include additional origins as comma-separated values if needed.
+   - `CORS_ORIGINS` — the exact frontend origin, for example `https://crm-frontend-cyan-six.vercel.app`. This setting replaces the code defaults; include local or additional frontend origins as comma-separated values if needed.
    - `JWT_EXPIRES_IN` — optional; defaults to `1h`.
 3. Deploy. The API routes remain under `/api`, for example `https://your-backend.vercel.app/api/auth/login`.
 4. In the frontend Vercel project, set `NEXT_PUBLIC_API_URL` to the backend deployment origin only (for example, `https://your-backend.vercel.app`), then redeploy the frontend.

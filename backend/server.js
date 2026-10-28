@@ -12,7 +12,8 @@ const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGINS
+  || 'https://crm-frontend-cyan-six.vercel.app,http://localhost:3000,http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -26,6 +27,8 @@ app.use(
       }
       return callback(Object.assign(new Error('Origin is not allowed by CORS.'), { status: 403 }));
     },
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 app.use(express.json({ limit: '100kb' }));
