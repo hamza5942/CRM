@@ -28,7 +28,7 @@ Login at `POST /api/auth/login` with `{ "email": "...", "password": "..." }`. Se
 - `GET /api/attendance/daily` — admin-only; list today's employee accounts with attendance records and heartbeat-derived status.
 - `GET /api/attendance/live` — admin-only; lists employees and their latest status. Missing or older-than-two-minute heartbeats are reported as `offline`.
 - `/api/tasks` — authenticated CRUD. Employees can access their own tasks; administrators can manage tasks across employees. List routes accept `page` and `limit` (maximum 100).
-- `/api/leads` — authenticated CRUD. List routes accept `page` and `limit` (maximum 100).
+- `/api/leads` — authenticated CRUD. Leads can include website URL, `domainName`, `websiteName`, `techStack`, `websiteProjectStartDate`, and `websiteProjectEndDate`. List routes accept `page` and `limit` (maximum 100).
 
 Attendance dates use UTC calendar days. Active and idle summary minutes count the corresponding heartbeat samples, which are expected at approximately one-minute intervals.
 

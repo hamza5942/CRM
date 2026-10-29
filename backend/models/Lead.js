@@ -6,6 +6,12 @@ const leadSchema = new mongoose.Schema(
     companyName: { type: String, trim: true },
     email: { type: String, lowercase: true, trim: true },
     phone: { type: String, trim: true },
+    website: { type: String, trim: true },
+    domainName: { type: String, trim: true },
+    websiteName: { type: String, trim: true },
+    techStack: { type: String, trim: true },
+    websiteProjectStartDate: { type: Date },
+    websiteProjectEndDate: { type: Date },
     status: {
       type: String,
       enum: ['new', 'contacted', 'discovery', 'proposal', 'closed'],

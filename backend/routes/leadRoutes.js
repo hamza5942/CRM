@@ -5,7 +5,21 @@ const Lead = require('../models/Lead');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const router = express.Router();
-const LEAD_FIELDS = ['clientName', 'companyName', 'email', 'phone', 'status', 'dealValue', 'notes'];
+const LEAD_FIELDS = [
+  'clientName',
+  'companyName',
+  'email',
+  'phone',
+  'website',
+  'domainName',
+  'websiteName',
+  'techStack',
+  'websiteProjectStartDate',
+  'websiteProjectEndDate',
+  'status',
+  'dealValue',
+  'notes',
+];
 
 function parsePagination(query) {
   const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
