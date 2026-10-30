@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const Heartbeat = require('../models/Heartbeat');
 const User = require('../models/User');
-const { authMiddleware, isAdmin, isEmployee } = require('../middleware/authMiddleware');
+const { authMiddleware, isEmployee } = require('../middleware/authMiddleware');
 const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
@@ -139,7 +139,7 @@ router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
   return res.status(201).json({ heartbeat });
 });
 
-router.get('/today', authMiddleware, isEmployee, async (req, res) => {
+router.get('/today', authMiddleware, async (req, res) => {
   const attendance = await Attendance.findOne({
     userId: req.user.id,
     date: utcDayStart(),
@@ -147,9 +147,170 @@ router.get('/today', authMiddleware, isEmployee, async (req, res) => {
   return res.json({ attendance });
 });
 
-router.get('/daily', authMiddleware, isAdmin, async (_req, res) => {
-  const date = utcDayStart();
+/**
+ * Personal Attendance History:
+ * - Employees can access ONLY their own attendance history across all days.
+ * - Admins can optionally pass ?userId=... to see an employee's history.
+ */
+router.get('/history', authMiddleware, async (req, res) => {
+  const isUserAdmin = req.user.role === 'admin';
+  const targetUserId = isUserAdmin && req.query.userId ? req.query.userId : req.user.id;
+
+  if (!mongoose.isValidObjectId(targetUserId)) {
+    return res.status(400).json({ error: 'The specified user ID is invalid.' });
+  }
+
+  const filter = { userId: new mongoose.Types.ObjectId(targetUserId) };
+
+  if (req.query.startDate || req.query.endDate) {
+    filter.date = {};
+    if (req.query.startDate) {
+      filter.date.$gte = utcDayStart(new Date(req.query.startDate));
+    }
+    if (req.query.endDate) {
+      filter.date.$lte = utcDayStart(new Date(req.query.endDate));
+    }
+  }
+
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+
+  const [records, total] = await Promise.all([
+    Attendance.find(filter)
+      .sort({ date: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Attendance.countDocuments(filter),
+  ]);
+
+  const todayStart = utcDayStart();
   const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
+
+  // If today's attendance is ongoing, calculate live active/idle minutes
+  const formattedRecords = await Promise.all(
+    records.map(async (record) => {
+      const isToday = new Date(record.date).getTime() === todayStart.getTime();
+      let activeMinutes = record.totalActiveMinutes || 0;
+      let idleMinutes = record.totalIdleMinutes || 0;
+      let status = record.checkOut ? 'completed' : record.checkIn ? 'in_progress' : 'absent';
+
+      if (isToday && !record.checkOut && record.checkIn) {
+        const latestHeartbeat = await Heartbeat.findOne({
+          userId: targetUserId,
+          timestamp: { $gte: record.checkIn },
+        })
+          .sort({ timestamp: -1 })
+          .lean();
+
+        const isFresh = latestHeartbeat && latestHeartbeat.timestamp >= cutoff;
+        status = isFresh ? latestHeartbeat.status : 'in_progress';
+
+        const sampleCounts = await Heartbeat.aggregate([
+          {
+            $match: {
+              userId: new mongoose.Types.ObjectId(targetUserId),
+              timestamp: { $gte: record.checkIn },
+              status: { $in: ['active', 'idle'] },
+            },
+          },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+        ]);
+        sampleCounts.forEach((item) => {
+          if (item._id === 'active') activeMinutes = item.count;
+          if (item._id === 'idle') idleMinutes = item.count;
+        });
+      }
+
+      return {
+        _id: record._id,
+        date: record.date,
+        checkIn: record.checkIn || null,
+        checkOut: record.checkOut || null,
+        activeMinutes,
+        idleMinutes,
+        totalMinutes: activeMinutes + idleMinutes,
+        status,
+      };
+    })
+  );
+
+  // Aggregate overview statistics for this employee
+  const allUserRecords = await Attendance.find({ userId: targetUserId })
+    .select('totalActiveMinutes totalIdleMinutes checkIn checkOut')
+    .lean();
+
+  const totalActiveMinutes = allUserRecords.reduce((sum, r) => sum + (r.totalActiveMinutes || 0), 0);
+  const totalIdleMinutes = allUserRecords.reduce((sum, r) => sum + (r.totalIdleMinutes || 0), 0);
+  const completedDays = allUserRecords.filter((r) => r.checkIn && r.checkOut).length;
+
+  return res.json({
+    records: formattedRecords,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+    summary: {
+      totalDaysPresent: total,
+      completedDays,
+      totalActiveMinutes,
+      totalIdleMinutes,
+      averageActiveMinutes: total > 0 ? Math.round(totalActiveMinutes / total) : 0,
+    },
+  });
+});
+
+/**
+ * Daily Attendance:
+ * - Admin: lists all registered employees for the specified date.
+ * - Employee: securely lists ONLY their own attendance for that date.
+ */
+router.get('/daily', authMiddleware, async (req, res) => {
+  let date = utcDayStart();
+  if (req.query.date) {
+    const parsed = new Date(req.query.date);
+    if (!isNaN(parsed.getTime())) {
+      date = utcDayStart(parsed);
+    }
+  }
+
+  const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
+
+  // When called by an employee, return ONLY their own record
+  if (req.user.role === 'employee') {
+    const employeeId = new mongoose.Types.ObjectId(req.user.id);
+    const [attendanceRecord, latestHeartbeat] = await Promise.all([
+      Attendance.findOne({ userId: employeeId, date }).lean(),
+      Heartbeat.findOne({ userId: employeeId, timestamp: { $gte: date } })
+        .sort({ timestamp: -1 })
+        .lean(),
+    ]);
+
+    const clockedIn = Boolean(attendanceRecord?.checkIn && !attendanceRecord.checkOut);
+    const isFresh = clockedIn && latestHeartbeat && latestHeartbeat.timestamp >= cutoff;
+    const status = isFresh ? latestHeartbeat.status : 'offline';
+
+    const record = {
+      user: {
+        _id: req.user.id,
+        fullName: req.user.fullName,
+        email: req.user.email,
+      },
+      status,
+      clockedIn,
+      checkIn: attendanceRecord?.checkIn || null,
+      checkOut: attendanceRecord?.checkOut || null,
+      activeMinutes: attendanceRecord?.totalActiveMinutes || 0,
+      idleMinutes: attendanceRecord?.totalIdleMinutes || 0,
+      lastHeartbeatAt: latestHeartbeat?.timestamp || null,
+    };
+
+    return res.json({ date, employees: [record], total: 1 });
+  }
+
+  // When called by an admin, return all active employees
   const employees = await User.find({ role: 'employee', isActive: { $ne: false } })
     .select('_id fullName email')
     .sort({ fullName: 1 })
@@ -203,8 +364,44 @@ router.get('/daily', authMiddleware, isAdmin, async (_req, res) => {
   return res.json({ date, employees: records, total: records.length });
 });
 
-router.get('/live', authMiddleware, isAdmin, async (_req, res) => {
+/**
+ * Live Attendance:
+ * - Admin: lists all employees live status.
+ * - Employee: lists only their own live status.
+ */
+router.get('/live', authMiddleware, async (req, res) => {
   const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
+
+  if (req.user.role === 'employee') {
+    const employeeId = new mongoose.Types.ObjectId(req.user.id);
+    const [latestHeartbeat, openAttendance] = await Promise.all([
+      Heartbeat.findOne({ userId: employeeId }).sort({ timestamp: -1 }).lean(),
+      Attendance.findOne({
+        userId: employeeId,
+        date: utcDayStart(),
+        checkIn: { $ne: null },
+        checkOut: null,
+      }).lean(),
+    ]);
+
+    const clockedIn = Boolean(openAttendance);
+    const isFresh = clockedIn && latestHeartbeat && latestHeartbeat.timestamp >= cutoff;
+    return res.json({
+      employees: [
+        {
+          user: {
+            _id: req.user.id,
+            fullName: req.user.fullName,
+            email: req.user.email,
+          },
+          status: isFresh ? latestHeartbeat.status : 'offline',
+          clockedIn,
+          lastHeartbeatAt: latestHeartbeat ? latestHeartbeat.timestamp : null,
+        },
+      ],
+    });
+  }
+
   const employees = await User.find({ role: 'employee', isActive: { $ne: false } })
     .select('_id fullName email')
     .sort({ fullName: 1 })
