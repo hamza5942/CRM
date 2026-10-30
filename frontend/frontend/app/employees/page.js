@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, RotateCcw, Trash2, UserPlus, X } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
+import { useWorkspaceUpdates } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
 
 const inputClassName = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
@@ -37,30 +38,30 @@ export default function EmployeesPage() {
     setError(requestError instanceof Error ? requestError.message : "The request failed. Please try again.");
   }, [logout]);
 
-  useEffect(() => {
-    let current = true;
-    const loadEmployees = async () => {
-      try {
-        const result = await apiRequest("auth/users?includeInactive=true", { token: session.token });
-        if (!current) return;
-        if (!Array.isArray(result.users)) {
-          throw new Error("The backend returned an invalid employee list.");
-        }
-        setEmployees(result.users.map(normalizeEmployee));
-      } catch (requestError) {
-        if (!current) return;
-        if (requestError instanceof ApiError && requestError.status === 401) {
-          logout("Your sign-in session has expired. Please sign in again.");
-        } else {
-          setError(requestError instanceof Error ? requestError.message : "Could not load employees.");
-        }
-      } finally {
-        if (current) setLoading(false);
+  const loadEmployees = useCallback(async () => {
+    try {
+      const result = await apiRequest("auth/users?includeInactive=true", { token: session.token });
+      if (!Array.isArray(result.users)) {
+        throw new Error("The backend returned an invalid employee list.");
       }
-    };
-    loadEmployees();
-    return () => { current = false; };
+      setEmployees(result.users.map(normalizeEmployee));
+      setError("");
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        logout("Your sign-in session has expired. Please sign in again.");
+      } else {
+        setError(requestError instanceof Error ? requestError.message : "Could not load employees.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [logout, session.token]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadEmployees);
+  }, [loadEmployees]);
+
+  useWorkspaceUpdates(session.token, ["employees"], loadEmployees);
 
   const createEmployee = async (event) => {
     event.preventDefault();

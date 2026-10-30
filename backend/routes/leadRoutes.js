@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const Lead = require('../models/Lead');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
 const LEAD_FIELDS = [
@@ -41,6 +42,7 @@ router.post('/', async (req, res) => {
         .map((field) => [field, body[field]])
     ),
   });
+  publishWorkspaceChange(req, 'leads', { action: 'create', lead });
   return res.status(201).json({ lead });
 });
 
@@ -79,6 +81,8 @@ async function updateLead(req, res) {
     runValidators: true,
   });
   if (!lead) return res.status(404).json({ error: 'Lead not found.' });
+
+  publishWorkspaceChange(req, 'leads', { action: 'update', lead });
   return res.json({ lead });
 }
 
@@ -91,6 +95,8 @@ router.delete('/:id', async (req, res) => {
   }
   const lead = await Lead.findByIdAndDelete(req.params.id);
   if (!lead) return res.status(404).json({ error: 'Lead not found.' });
+
+  publishWorkspaceChange(req, 'leads', { action: 'delete', leadId: req.params.id });
   return res.json({ message: 'Lead deleted.' });
 });
 

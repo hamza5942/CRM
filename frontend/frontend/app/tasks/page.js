@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
+import { useWorkspaceUpdates, useRealtimeStatus } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
 
 const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -51,6 +52,7 @@ function statusClasses(status) {
 
 export default function EmployeeDailyPortal() {
   const { session, logout } = useAuth();
+  const realtimeStatus = useRealtimeStatus();
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [assignedUserId, setAssignedUserId] = useState("");
@@ -72,40 +74,40 @@ export default function EmployeeDailyPortal() {
     setError(requestError instanceof Error ? requestError.message : "The request failed. Please try again.");
   }, [logout]);
 
-  useEffect(() => {
-    let current = true;
-    const loadData = async () => {
-      try {
-        const [taskResult, attendanceResult] = await Promise.all([
-          apiRequest("tasks", { token: session.token }),
-          apiRequest(session.role === "admin" ? "attendance/daily" : "attendance/today", { token: session.token }),
-        ]);
-        if (!current) return;
-        setTasks(taskResult.tasks.map((task) => ({
-          id: task._id,
-          title: task.taskTitle,
-          status: task.status,
-          assignee: task.userId && typeof task.userId === "object" ? task.userId.fullName : "",
-        })));
-        if (session.role === "admin") {
-          const nextEmployees = attendanceResult.employees.map(({ user }) => user);
-          setEmployees(nextEmployees);
-          setAssignedUserId((current) => current || nextEmployees[0]?._id || "");
-        } else {
-          setAttendance(attendanceResult.attendance);
-        }
-        setToday(new Date());
-        lastActivityRef.current = Date.now();
-        setError("");
-      } catch (requestError) {
-        if (current) handleError(requestError);
-      } finally {
-        if (current) setLoading(false);
+  const loadData = useCallback(async () => {
+    try {
+      const [taskResult, attendanceResult] = await Promise.all([
+        apiRequest("tasks", { token: session.token }),
+        apiRequest(session.role === "admin" ? "attendance/daily" : "attendance/today", { token: session.token }),
+      ]);
+      setTasks(taskResult.tasks.map((task) => ({
+        id: task._id,
+        title: task.taskTitle,
+        status: task.status,
+        assignee: task.userId && typeof task.userId === "object" ? task.userId.fullName : "",
+      })));
+      if (session.role === "admin") {
+        const nextEmployees = attendanceResult.employees.map(({ user }) => user);
+        setEmployees(nextEmployees);
+        setAssignedUserId((current) => current || nextEmployees[0]?._id || "");
+      } else {
+        setAttendance(attendanceResult.attendance);
       }
-    };
-    loadData();
-    return () => { current = false; };
+      setToday(new Date());
+      lastActivityRef.current = Date.now();
+      setError("");
+    } catch (requestError) {
+      handleError(requestError);
+    } finally {
+      setLoading(false);
+    }
   }, [handleError, session.role, session.token]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadData);
+  }, [loadData]);
+
+  useWorkspaceUpdates(session.token, ["attendance", "employees", "tasks"], loadData);
 
   const isClockedIn = Boolean(attendance?.checkIn && !attendance.checkOut);
   const attendanceAvailable = session.role === "employee";
@@ -142,8 +144,12 @@ export default function EmployeeDailyPortal() {
           token: session.token,
           body: JSON.stringify({ status: idle ? "idle" : "active" }),
         });
-      } catch (requestError) {
-        handleError(requestError);
+      } catch (heartbeatError) {
+        if (heartbeatError instanceof ApiError && heartbeatError.status === 409) {
+          setAttendance((current) => (current ? { ...current, checkOut: new Date() } : current));
+        } else {
+          handleError(heartbeatError);
+        }
       }
     };
 
@@ -225,13 +231,21 @@ export default function EmployeeDailyPortal() {
     setError("");
     setSavedMessage("");
     try {
-      const result = await apiRequest(`attendance/${isClockedIn ? "clock-out" : "clock-in"}`, {
+      const wasClockedIn = isClockedIn;
+      const result = await apiRequest(`attendance/${wasClockedIn ? "clock-out" : "clock-in"}`, {
         method: "POST",
         token: session.token,
       });
       setAttendance(result.attendance);
-      setSavedMessage(isClockedIn ? "Clocked out. Attendance was saved." : "Clocked in. Attendance was saved.");
+      setSavedMessage(wasClockedIn ? "Clocked out. Attendance was saved." : "Clocked in. Attendance was saved.");
       lastActivityRef.current = Date.now();
+      if (!wasClockedIn) {
+        apiRequest("attendance/heartbeat", {
+          method: "POST",
+          token: session.token,
+          body: JSON.stringify({ status: "active" }),
+        }).catch(() => {});
+      }
     } catch (requestError) {
       handleError(requestError);
     } finally {
@@ -271,42 +285,63 @@ export default function EmployeeDailyPortal() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {attendanceAvailable && <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${isClockedIn ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600"}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${isClockedIn ? "bg-emerald-500" : "bg-slate-300"}`} />
-            {isClockedIn ? "Time tracking active" : "Not clocked in"}
-          </div>}
-          {attendanceAvailable && <button
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-wait disabled:opacity-60 ${isClockedIn ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-100" : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-100"}`}
-            disabled={pending || loading}
-            onClick={toggleClock}
-            type="button"
-          >
-            {isClockedIn ? <LogOut aria-hidden="true" className="h-4 w-4" /> : <LogIn aria-hidden="true" className="h-4 w-4" />}
-            {pending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
-          </button>}
+          {realtimeStatus === "connected" ? (
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Live Sync Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+              {realtimeStatus === "connecting" ? "Connecting live sync..." : "Live Auto-sync Active"}
+            </span>
+          )}
+
+          {attendanceAvailable && (
+            <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${isClockedIn ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600"}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${isClockedIn ? "bg-emerald-500" : "bg-slate-300"}`} />
+              {isClockedIn ? "Time tracking active" : "Not clocked in"}
+            </div>
+          )}
+          {attendanceAvailable && (
+            <button
+              className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-wait disabled:opacity-60 ${isClockedIn ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-100" : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-100"}`}
+              disabled={pending || loading}
+              onClick={toggleClock}
+              type="button"
+            >
+              {isClockedIn ? <LogOut aria-hidden="true" className="h-4 w-4" /> : <LogIn aria-hidden="true" className="h-4 w-4" />}
+              {pending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
+            </button>
+          )}
         </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}
       {savedMessage && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{savedMessage}</div>}
 
-      {attendanceAvailable && <section aria-label="Today's attendance and active time" className="mb-6 grid gap-4 sm:grid-cols-3">
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
-          <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">Time since clock-in</p><Clock3 aria-hidden="true" className="h-4 w-4 text-indigo-600" /></div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{formatDuration(activeSeconds)}</p>
-          <p className="mt-1 text-[11px] text-slate-400">Based on your saved attendance record</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
-          <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">Idle minutes</p><Coffee aria-hidden="true" className="h-4 w-4 text-slate-600" /></div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{idleMinutes}m</p>
-          <p className="mt-1 text-[11px] text-slate-400">Recorded heartbeat samples</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
-          <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">First clock-in</p><Clock3 aria-hidden="true" className="h-4 w-4 text-emerald-600" /></div>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{formatClockTime(attendance?.checkIn)}</p>
-          <p className="mt-1 text-[11px] text-slate-400">{attendance?.checkOut ? `Clocked out ${formatClockTime(attendance.checkOut)}` : attendance?.checkIn ? "Today's attendance record" : "No attendance record yet"}</p>
-        </article>
-      </section>}
+      {attendanceAvailable && (
+        <section aria-label="Today's attendance and active time" className="mb-6 grid gap-4 sm:grid-cols-3">
+          <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
+            <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">Time since clock-in</p><Clock3 aria-hidden="true" className="h-4 w-4 text-indigo-600" /></div>
+            <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{formatDuration(activeSeconds)}</p>
+            <p className="mt-1 text-[11px] text-slate-400">Based on your saved attendance record</p>
+          </article>
+          <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
+            <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">Idle minutes</p><Coffee aria-hidden="true" className="h-4 w-4 text-slate-600" /></div>
+            <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{idleMinutes}m</p>
+            <p className="mt-1 text-[11px] text-slate-400">Recorded heartbeat samples</p>
+          </article>
+          <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
+            <div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500">First clock-in</p><Clock3 aria-hidden="true" className="h-4 w-4 text-emerald-600" /></div>
+            <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{formatClockTime(attendance?.checkIn)}</p>
+            <p className="mt-1 text-[11px] text-slate-400">{attendance?.checkOut ? `Clocked out ${formatClockTime(attendance.checkOut)}` : attendance?.checkIn ? "Today's attendance record" : "No attendance record yet"}</p>
+          </article>
+        </section>
+      )}
 
       <section aria-labelledby="daily-tasks-heading" className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-3">

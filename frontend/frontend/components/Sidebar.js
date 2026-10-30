@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
 import CompanyLogo from "./CompanyLogo";
+import { useRealtimeStatus } from "../lib/realtime";
 
 const navigation = [
   { label: "Dashboard", href: "/", icon: "grid" },
@@ -28,9 +29,12 @@ function NavIcon({ name }) {
 
 function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout }) {
   const employeeView = role === "employee";
+  const realtimeStatus = useRealtimeStatus();
   const visibleNavigation = employeeView
     ? navigation.filter((item) => ["/attendance", "/tasks"].includes(item.href))
     : navigation;
+
+  const isLive = realtimeStatus === "connected";
 
   return (
     <div className="flex h-full flex-col px-4 py-5">
@@ -61,12 +65,25 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout 
 
       <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.04] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-200">System status</p>
-          <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" /></span>
+          <p className="text-xs font-semibold text-slate-200">Socket.IO Sync</p>
+          <span className="relative flex h-2.5 w-2.5">
+            {isLive ? (
+              <>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              </>
+            ) : (
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
+            )}
+          </span>
         </div>
-        <p className="text-xs text-slate-400">All systems operational</p>
-        <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full w-[98%] rounded-full bg-emerald-400" /></div>
-        <p className="mt-2 text-[10px] text-slate-500">Uptime 99.98%</p>
+        <p className="text-xs text-slate-400">
+          {isLive ? "Live connected" : realtimeStatus === "connecting" ? "Connecting live sync..." : "Live auto-sync active"}
+        </p>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
+          <div className={`h-full ${isLive ? "w-full bg-emerald-400" : "w-1/2 bg-amber-400"}`} />
+        </div>
+        <p className="mt-2 text-[10px] text-slate-500">{isLive ? "Zero latency push" : "Auto-polling fallback"}</p>
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-white/10 px-2 pt-5">

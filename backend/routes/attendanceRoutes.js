@@ -5,6 +5,7 @@ const Attendance = require('../models/Attendance');
 const Heartbeat = require('../models/Heartbeat');
 const User = require('../models/User');
 const { authMiddleware, isAdmin, isEmployee } = require('../middleware/authMiddleware');
+const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
 const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000;
@@ -16,11 +17,27 @@ function utcDayStart(date = new Date()) {
 router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
   const date = utcDayStart();
   try {
+    const checkInTime = new Date();
     const attendance = await Attendance.create({
       userId: req.user.id,
       date,
-      checkIn: new Date(),
+      checkIn: checkInTime,
     });
+
+    // Create an immediate active heartbeat so the status shows 'active' immediately
+    await Heartbeat.create({
+      userId: req.user.id,
+      status: 'active',
+      timestamp: checkInTime,
+    });
+
+    publishWorkspaceChange(req, 'attendance', {
+      action: 'clock-in',
+      userId: req.user.id,
+      checkIn: checkInTime,
+      status: 'active',
+    });
+
     return res.status(201).json({ attendance });
   } catch (error) {
     if (error.code === 11000) {
@@ -72,6 +89,21 @@ router.post('/clock-out', authMiddleware, isEmployee, async (req, res) => {
     return res.status(409).json({ error: 'Attendance has already been checked out.' });
   }
 
+  // Create an immediate offline heartbeat
+  await Heartbeat.create({
+    userId: req.user.id,
+    status: 'offline',
+    timestamp: checkOut,
+  });
+
+  publishWorkspaceChange(req, 'attendance', {
+    action: 'clock-out',
+    userId: req.user.id,
+    checkOut,
+    status: 'offline',
+    summary,
+  });
+
   return res.json({ attendance: updated, summary });
 });
 
@@ -96,6 +128,14 @@ router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
     status,
     timestamp: new Date(),
   });
+
+  publishWorkspaceChange(req, 'attendance', {
+    action: 'heartbeat',
+    userId: req.user.id,
+    status,
+    timestamp: heartbeat.timestamp,
+  });
+
   return res.status(201).json({ heartbeat });
 });
 
@@ -174,7 +214,7 @@ router.get('/live', authMiddleware, isAdmin, async (_req, res) => {
     employeeIds.length
       ? Heartbeat.aggregate([
           { $match: { userId: { $in: employeeIds } } },
-      { $sort: { userId: 1, timestamp: -1 } },
+          { $sort: { userId: 1, timestamp: -1 } },
           {
             $group: {
               _id: '$userId',

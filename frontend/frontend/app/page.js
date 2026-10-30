@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, CircleDollarSign, Users } from "lucide-react";
 import { ApiError, apiRequest } from "../lib/api";
+import { useWorkspaceUpdates, useRealtimeStatus } from "../lib/realtime";
 import { useAuth } from "../components/AuthContext";
 
 const LEAD_STAGES = [
@@ -32,40 +33,40 @@ function StatusBadge({ status }) {
 
 export default function Home() {
   const { session, logout } = useAuth();
+  const realtimeStatus = useRealtimeStatus();
   const [employees, setEmployees] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let current = true;
-    const loadDashboard = async () => {
-      try {
-        const [attendanceResult, taskResult, leadResult] = await Promise.all([
-          apiRequest("attendance/live", { token: session.token }),
-          apiRequest("tasks?limit=100", { token: session.token }),
-          apiRequest("leads?limit=100", { token: session.token }),
-        ]);
-        if (!current) return;
-        setEmployees(attendanceResult.employees);
-        setTasks(taskResult.tasks);
-        setLeads(leadResult.leads);
-        setError("");
-      } catch (requestError) {
-        if (!current) return;
-        if (requestError instanceof ApiError && requestError.status === 401) {
-          logout("Your sign-in session has expired. Please sign in again.");
-        } else {
-          setError(requestError instanceof Error ? requestError.message : "Could not load workspace data.");
-        }
-      } finally {
-        if (current) setLoading(false);
+  const loadDashboard = useCallback(async () => {
+    try {
+      const [attendanceResult, taskResult, leadResult] = await Promise.all([
+        apiRequest("attendance/live", { token: session.token }),
+        apiRequest("tasks?limit=100", { token: session.token }),
+        apiRequest("leads?limit=100", { token: session.token }),
+      ]);
+      setEmployees(attendanceResult.employees);
+      setTasks(taskResult.tasks);
+      setLeads(leadResult.leads);
+      setError("");
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        logout("Your sign-in session has expired. Please sign in again.");
+      } else {
+        setError(requestError instanceof Error ? requestError.message : "Could not load workspace data.");
       }
-    };
-    loadDashboard();
-    return () => { current = false; };
+    } finally {
+      setLoading(false);
+    }
   }, [logout, session.token]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadDashboard);
+  }, [loadDashboard]);
+
+  useWorkspaceUpdates(session.token, ["attendance", "employees", "leads", "tasks"], loadDashboard);
 
   const activeCount = employees.filter((employee) => employee.status === "active").length;
   const idleCount = employees.filter((employee) => employee.status === "idle").length;
@@ -98,10 +99,26 @@ export default function Home() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Welcome back, {session.fullName}</h1>
           <p className="mt-2 text-sm text-slate-500">Here&apos;s what&apos;s happening across your workspace.</p>
         </div>
-        <Link className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:self-auto" href="/employees">
-          <Users aria-hidden="true" className="h-4 w-4 text-slate-500" />
-          Manage employees
-        </Link>
+        <div className="flex items-center gap-3">
+          {realtimeStatus === "connected" ? (
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Live Sync Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+              {realtimeStatus === "connecting" ? "Connecting live sync..." : "Live Auto-sync Active"}
+            </span>
+          )}
+          <Link className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:self-auto" href="/employees">
+            <Users aria-hidden="true" className="h-4 w-4 text-slate-500" />
+            Manage employees
+          </Link>
+        </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}

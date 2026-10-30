@@ -2,8 +2,10 @@ require('dotenv').config();
 
 const cors = require('cors');
 const express = require('express');
+const { createServer } = require('node:http');
 const mongoose = require('mongoose');
 const { connectToDatabase } = require('./db');
+const { attachRealtime, isAllowedOrigin } = require('./realtime');
 
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -22,11 +24,12 @@ app.disable('x-powered-by');
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin, allowedOrigins)) {
         return callback(null, true);
       }
       return callback(Object.assign(new Error('Origin is not allowed by CORS.'), { status: 403 }));
     },
+    credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
@@ -88,17 +91,15 @@ async function startServer() {
   console.log(`Connected to MongoDB database "${mongoose.connection.name}"`);
 
   const port = Number(process.env.PORT) || 5000;
-  const server = app.listen(port, () => {
+  const server = createServer(app);
+  app.set('io', attachRealtime(server, allowedOrigins));
+  server.listen(port, () => {
     console.log(`Backend running on port ${port}`);
   });
 
   const shutdown = (signal) => {
     console.log(`${signal} received; shutting down.`);
-    server.close(async (error) => {
-      if (error) {
-        console.error('HTTP server shutdown failed:', error);
-        process.exitCode = 1;
-      }
+    app.get('io').close(async () => {
       try {
         await mongoose.disconnect();
       } catch (disconnectError) {

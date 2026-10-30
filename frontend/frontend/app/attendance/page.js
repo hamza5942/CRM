@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, apiRequest } from "../../lib/api";
+import { useWorkspaceUpdates, useRealtimeStatus } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
 
 const STATUS_STYLES = {
@@ -29,29 +30,29 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const realtimeStatus = useRealtimeStatus();
+
+  const loadAttendance = useCallback(async () => {
+    try {
+      const result = await apiRequest("attendance/daily", { token: session.token });
+      setEmployees(result.employees);
+      setError("");
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        logout("Your sign-in session has expired. Please sign in again.");
+      } else {
+        setError(requestError instanceof Error ? requestError.message : "Could not load attendance.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [logout, session.token]);
 
   useEffect(() => {
-    let current = true;
-    const loadAttendance = async () => {
-      try {
-        const result = await apiRequest("attendance/daily", { token: session.token });
-        if (!current) return;
-        setEmployees(result.employees);
-        setError("");
-      } catch (requestError) {
-        if (!current) return;
-        if (requestError instanceof ApiError && requestError.status === 401) {
-          logout("Your sign-in session has expired. Please sign in again.");
-        } else {
-          setError(requestError instanceof Error ? requestError.message : "Could not load attendance.");
-        }
-      } finally {
-        if (current) setLoading(false);
-      }
-    };
-    loadAttendance();
-    return () => { current = false; };
-  }, [logout, refreshKey, session.token]);
+    void Promise.resolve().then(loadAttendance);
+  }, [loadAttendance, refreshKey]);
+
+  useWorkspaceUpdates(session.token, ["attendance", "employees"], loadAttendance);
 
   const filteredEmployees = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -76,7 +77,27 @@ export default function AttendancePage() {
   return (
     <>
       <header className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div><p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">People operations</p><h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Attendance</h1><p className="mt-2 text-sm text-slate-500">Live attendance from saved employee records for {today}.</p></div>
+        <div>
+          <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">People operations</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Attendance</h1>
+          <p className="mt-2 text-sm text-slate-500">Live attendance from saved employee records for {today}.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {realtimeStatus === "connected" ? (
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Live Sync Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+              {realtimeStatus === "connecting" ? "Connecting live sync..." : "Live Auto-sync Active"}
+            </span>
+          )}
+        </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}

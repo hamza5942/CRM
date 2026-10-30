@@ -34,18 +34,17 @@ Attendance dates use UTC calendar days. Active and idle summary minutes count th
 
 Set `CORS_ORIGINS` to a comma-separated list of allowed browser origins. If it is unset, the API allows `https://crm-frontend-cyan-six.vercel.app`, `http://localhost:3000`, and `http://localhost:5173`. Requests without an `Origin` header are allowed for non-browser clients. The CORS middleware handles preflight `OPTIONS` requests.
 
-## Deploy the API to Vercel
+## Deploy for live updates
 
-The Express app is exported from `server.js` for Vercel's Express runtime, and `api/[...path].js` also exposes the existing `/api` routes as a catch-all Node.js Function. The app validates its runtime configuration and connects to MongoDB when handling a request; warm function instances reuse the Mongoose connection. `npm start` remains available for local or traditional server hosting.
+Live dashboard updates use authenticated Socket.IO connections. The backend must run as a persistent Node.js HTTP server; serverless function deployments, including the Vercel catch-all below, continue to serve REST requests but cannot provide live Socket.IO updates.
 
-1. Import the repository into Vercel and set the project's **Root Directory** to `backend`.
-2. Add these environment variables to the Vercel project:
+1. Deploy the `backend` directory to a Node.js host that supports long-running HTTP/WebSocket connections, and use `npm start` as its start command.
+2. Set these environment variables on the backend host:
    - `MONGO_URI` — a production MongoDB connection string. Configure the MongoDB provider's network access to allow connections from Vercel.
    - `JWT_SECRET` — a random secret containing at least 32 bytes.
    - `CORS_ORIGINS` — the exact frontend origin, for example `https://crm-frontend-cyan-six.vercel.app`. This setting replaces the code defaults; include local or additional frontend origins as comma-separated values if needed.
    - `JWT_EXPIRES_IN` — optional; defaults to `1h`.
-3. Deploy. The API routes remain under `/api`, for example `https://your-backend.vercel.app/api/auth/login`.
-4. In the frontend Vercel project, set `NEXT_PUBLIC_API_URL` to the backend deployment origin only (for example, `https://your-backend.vercel.app`), then redeploy the frontend.
-5. Create the initial admin once by running `npm run create-admin` from `backend` with `MONGO_URI`, `ADMIN_NAME`, `ADMIN_EMAIL`, and a new `ADMIN_PASSWORD` available to that command. Do not commit these values or put them in `NEXT_PUBLIC_*` variables.
+3. Set `NEXT_PUBLIC_API_URL` in the frontend deployment to the backend origin (for example, `https://your-backend.example.com`), then redeploy the frontend. The same origin is used for REST and Socket.IO.
+4. Create the initial admin once by running `npm run create-admin` from `backend` with `MONGO_URI`, `ADMIN_NAME`, `ADMIN_EMAIL`, and a new `ADMIN_PASSWORD` available to that command. Do not commit these values or put them in `NEXT_PUBLIC_*` variables.
 
-Vercel runs the backend as a serverless function, not as a continuously running server. Do not use `npm start` as the Vercel deployment command; Vercel invokes the function in `api/[...path].js`.
+The Vercel function entry point remains available for REST-only deployments. Do not use it as the backend deployment for Socket.IO live updates.

@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 
 const User = require('../models/User');
 const { authMiddleware, isAdmin } = require('../middleware/authMiddleware');
+const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -101,6 +102,7 @@ router.post('/register', authMiddleware, isAdmin, async (req, res) => {
     throw error;
   }
 
+  publishWorkspaceChange(req, 'employees');
   return res.status(201).json({
     user: serializeEmployee(user),
   });
@@ -148,6 +150,7 @@ router.patch('/users/:id', authMiddleware, isAdmin, async (req, res) => {
       { new: true, runValidators: true }
     ).select('_id fullName email role isActive createdAt updatedAt');
     if (!user) return res.status(404).json({ error: 'Employee account not found.' });
+    publishWorkspaceChange(req, 'employees');
     return res.json({ user: serializeEmployee(user) });
   } catch (error) {
     if (error.code === 11000) {
@@ -169,6 +172,7 @@ router.delete('/users/:id', authMiddleware, isAdmin, async (req, res) => {
   ).select('_id fullName email role isActive');
   if (!user) return res.status(404).json({ error: 'Employee account not found.' });
 
+  publishWorkspaceChange(req, 'employees');
   return res.json({
     user: serializeEmployee(user),
     message: 'Employee account deactivated; existing records were kept.',
@@ -184,6 +188,7 @@ router.delete('/users/:id/permanent', authMiddleware, isAdmin, async (req, res) 
     .select('_id fullName email');
   if (!user) return res.status(404).json({ error: 'Employee account not found.' });
 
+  publishWorkspaceChange(req, 'employees');
   return res.json({
     user: { id: user._id.toString(), fullName: user.fullName, email: user.email },
     message: 'Employee account deleted; existing task and attendance records were kept.',

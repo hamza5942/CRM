@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
+import { useWorkspaceUpdates } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
 
 const STAGES = [
@@ -76,23 +77,23 @@ export default function CrmPage() {
     setError(requestError instanceof Error ? requestError.message : "The request failed. Please try again.");
   }, [logout]);
 
-  useEffect(() => {
-    let current = true;
-    const loadLeads = async () => {
-      try {
-        const result = await apiRequest("leads?limit=100", { token: session.token });
-        if (!current) return;
-        setLeads(result.leads);
-        setError("");
-      } catch (requestError) {
-        if (current) handleError(requestError);
-      } finally {
-        if (current) setLoading(false);
-      }
-    };
-    loadLeads();
-    return () => { current = false; };
+  const loadLeads = useCallback(async () => {
+    try {
+      const result = await apiRequest("leads?limit=100", { token: session.token });
+      setLeads(result.leads);
+      setError("");
+    } catch (requestError) {
+      handleError(requestError);
+    } finally {
+      setLoading(false);
+    }
   }, [handleError, session.token]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadLeads);
+  }, [loadLeads]);
+
+  useWorkspaceUpdates(session.token, ["leads"], loadLeads);
 
   const stageLeads = useMemo(() => STAGES.map((stage) => ({
     ...stage,

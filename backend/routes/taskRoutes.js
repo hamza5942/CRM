@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 
 const Task = require('../models/Task');
 const User = require('../models/User');
-const { authMiddleware, isAdmin } = require('../middleware/authMiddleware');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
 const TASK_FIELDS = ['taskTitle', 'status', 'date'];
@@ -42,7 +43,10 @@ router.post('/', async (req, res) => {
     ...(status !== undefined && { status }),
     ...(date !== undefined && { date }),
   });
-  return res.status(201).json({ task });
+
+  const populated = await Task.findById(task._id).populate('userId', 'fullName email role').lean();
+  publishWorkspaceChange(req, 'tasks', { action: 'create', task: populated });
+  return res.status(201).json({ task: populated });
 });
 
 router.get('/', async (req, res) => {
@@ -112,6 +116,8 @@ async function updateTask(req, res) {
     runValidators: true,
   }).populate('userId', 'fullName email role');
   if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+  publishWorkspaceChange(req, 'tasks', { action: 'update', task });
   return res.json({ task });
 }
 
@@ -126,6 +132,8 @@ router.delete('/:id', async (req, res) => {
   if (req.user.role !== 'admin') filter.userId = req.user.id;
   const task = await Task.findOneAndDelete(filter);
   if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+  publishWorkspaceChange(req, 'tasks', { action: 'delete', taskId: req.params.id });
   return res.json({ message: 'Task deleted.' });
 });
 
