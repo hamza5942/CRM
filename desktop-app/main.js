@@ -295,9 +295,9 @@ async function login({ email, password }) {
     throw new Error('This desktop app is for employee accounts only.');
   }
 
-  const durationMatch = /^(\d+)(s|m|h|d)$/.exec(expiresIn || '1h');
+  const durationMatch = /^(\d+)(s|m|h|d|y)?$/.exec(expiresIn || '3650d');
   if (!durationMatch) throw new Error('The server returned an unsupported token expiry.');
-  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[durationMatch[2]];
+  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000, y: 31_536_000_000 }[durationMatch[2] || 'd'] || 86_400_000;
   session = {
     token,
     expiresAt: Date.now() + Number(durationMatch[1]) * multiplier,

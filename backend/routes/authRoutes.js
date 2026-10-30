@@ -39,13 +39,13 @@ router.post('/login', async (req, res) => {
   const token = jwt.sign(
     { role: user.role, fullName: user.fullName, email: user.email },
     process.env.JWT_SECRET,
-    { subject: user._id.toString(), expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+    { subject: user._id.toString(), ...(process.env.JWT_EXPIRES_IN !== 'never' ? { expiresIn: process.env.JWT_EXPIRES_IN || '3650d' } : {}) }
   );
 
   return res.json({
     token,
     tokenType: 'Bearer',
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    expiresIn: process.env.JWT_EXPIRES_IN || '3650d',
     user: {
       id: user._id,
       fullName: user.fullName,

@@ -13,13 +13,56 @@ const VALID_ROLES = ["admin", "employee"];
 const EMPLOYEE_PATHS = ["/attendance", "/tasks"];
 
 function isValidSession(value) {
-  return value
-    && typeof value.token === "string"
-    && value.token.length > 0
-    && value.authenticated === true
-    && VALID_ROLES.includes(value.role)
-    && typeof value.fullName === "string"
-    && typeof value.email === "string";
+  return (
+    value &&
+    typeof value.token === "string" &&
+    value.token.length > 0 &&
+    value.authenticated === true &&
+    VALID_ROLES.includes(value.role) &&
+    typeof value.fullName === "string" &&
+    typeof value.email === "string"
+  );
+}
+
+function getSavedSession() {
+  if (typeof window === "undefined") return null;
+  try {
+    // 1. Try persistent localStorage first
+    const fromLocal = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (fromLocal) {
+      return JSON.parse(fromLocal);
+    }
+    // 2. Migrate from sessionStorage if user logged in previously
+    const fromSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (fromSession) {
+      localStorage.setItem(SESSION_STORAGE_KEY, fromSession);
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return JSON.parse(fromSession);
+    }
+  } catch (error) {
+    console.warn("Unable to access saved authentication:", error);
+  }
+  return null;
+}
+
+function persistSession(session) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch (error) {
+    console.warn("Unable to persist authentication:", error);
+  }
+}
+
+function removePersistedSession() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Unable to remove persisted authentication:", error);
+  }
 }
 
 export default function AuthShell({ children }) {
@@ -32,20 +75,16 @@ export default function AuthShell({ children }) {
 
   useEffect(() => {
     try {
-      sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
-      const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      const parsed = getSavedSession();
+      if (parsed) {
         if (isValidSession(parsed)) {
-          // Read browser-only session data after hydration to keep server markup deterministic.
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setSession(parsed);
         } else {
-          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          removePersistedSession();
         }
       }
     } catch {
-      setError("We couldn't access this browser's login session. Please enable session storage and try again.");
+      setError("We couldn't access this browser's login session. Please enable local storage and try again.");
     } finally {
       setLoaded(true);
     }
@@ -93,7 +132,7 @@ export default function AuthShell({ children }) {
         fullName: result.user.fullName,
         email: result.user.email,
       };
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+      persistSession(nextSession);
       setSession(nextSession);
       router.replace(result.user.role === "admin" ? "/" : "/tasks");
     } catch (loginError) {
@@ -106,7 +145,7 @@ export default function AuthShell({ children }) {
   const logout = useCallback((message = "") => {
     const feedback = typeof message === "string" ? message : "";
     try {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      removePersistedSession();
       setSession(null);
       setError(feedback);
       router.replace("/");
