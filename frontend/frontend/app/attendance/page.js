@@ -414,7 +414,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             href="/tasks"
           >
             <ListTodo aria-hidden="true" className="h-4 w-4" />
-            Daily Portal / Clock Controls
+            Daily Portal
           </Link>
         </div>
       </header>
