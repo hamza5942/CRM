@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Laptop, LogOut, X } from "lucide-react";
 import CompanyLogo from "./CompanyLogo";
 import { useRealtimeStatus } from "../lib/realtime";
 
@@ -76,6 +76,24 @@ function NavIcon({ name }) {
 function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout }) {
   const employeeView = role === "employee";
   const realtimeStatus = useRealtimeStatus();
+  const [installed, setInstalled] = useState(true);
+
+  useEffect(() => {
+    try {
+      const isInstalled = localStorage.getItem("crm.tracker.installed");
+      if (isInstalled !== "true") {
+        setInstalled(false);
+      }
+    } catch {}
+  }, []);
+
+  const handleDismiss = () => {
+    setInstalled(true);
+    try {
+      localStorage.setItem("crm.tracker.installed", "true");
+    } catch {}
+  };
+
   const visibleNavigation = employeeView
     ? navigation.filter((item) => ["/attendance", "/tasks"].includes(item.href))
     : navigation;
@@ -126,6 +144,49 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout 
         })}
       </nav>
 
+      {/* Sleek Side Card for Desktop Tracker (Vanishes once installed or dismissed) */}
+      {!installed && (
+        <div className="my-3 rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 p-3.5 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-300">
+                <Laptop className="h-4 w-4" />
+              </span>
+              <span className="text-xs font-semibold text-slate-100">Desktop Tracker</span>
+            </div>
+            <button
+              className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              onClick={handleDismiss}
+              title="Already installed? Dismiss"
+              type="button"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            Auto-tracks your active & idle hours in the background.
+          </p>
+          <div className="mt-3 flex flex-col gap-1.5">
+            <a
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+              download="EmployeeTracker-Setup.exe"
+              href={process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL || "/downloads/EmployeeTracker-Setup.exe"}
+              onClick={handleDismiss}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download (.exe)
+            </a>
+            <button
+              className="py-0.5 text-center text-[10px] text-slate-400 transition hover:text-slate-200"
+              onClick={handleDismiss}
+              type="button"
+            >
+              Already installed? Hide
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Docked to the very bottom */}
       <div className="mt-auto space-y-4 pt-4">
         {/* System Status Card */}
@@ -155,6 +216,14 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout 
             <p className="truncate text-xs font-semibold text-slate-100">{fullName}</p>
             <p className="truncate text-[11px] text-slate-400">{email}</p>
           </div>
+          <a
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
+            download="EmployeeTracker-Setup.exe"
+            href={process.env.NEXT_PUBLIC_TRACKER_DOWNLOAD_URL || "/downloads/EmployeeTracker-Setup.exe"}
+            title="Download desktop tracker (.exe)"
+          >
+            <Laptop aria-hidden="true" className="h-4 w-4" />
+          </a>
           <button
             aria-label="Sign out"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"

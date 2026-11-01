@@ -1,18 +1,60 @@
 {
   "name": "desktop-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Employee Attendance & Activity Tracker",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.codexcrm.employeetracker",
+    "productName": "Employee Tracker",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Employee Tracker"
+    },
+    "protocols": [
+      {
+        "name": "crm-tracker",
+        "schemes": [
+          "crm-tracker"
+        ]
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      ".env",
+      "icon.ico",
+      "package.json"
+    ]
   },
   "keywords": [],
-  "author": "",
+  "author": "Codex Solutions",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.20.0",
-    "dotenv": "^18.0.8",
-    "electron": "^44.8.0"
+    "dotenv": "^18.0.8"
+  },
+  "devDependencies": {
+    "electron": "^44.8.0",
+    "electron-builder": "^25.1.8"
   }
 }

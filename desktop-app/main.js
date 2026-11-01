@@ -15,17 +15,23 @@ const {
 } = require('electron');
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
+const SYNC_INTERVAL_MS = 10_000;
 const IDLE_THRESHOLD_SECONDS = Math.max(
   1,
   Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 300
 );
-const API_BASE_URL = (process.env.API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+let rawApiBase = (process.env.API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+if (!rawApiBase.endsWith('/api')) {
+  rawApiBase += '/api';
+}
+const API_BASE_URL = rawApiBase;
 const API_TIMEOUT_MS = 10_000;
 const SESSION_FILE = path.join(app.getPath('userData'), 'session.json');
 
 let mainWindow;
 let tray;
 let heartbeatTimer;
+let syncTimer;
 let session = null;
 let tracking = false;
 let forcedStatus = null;
@@ -37,6 +43,32 @@ const api = axios.create({
   timeout: API_TIMEOUT_MS,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Register custom protocol for one-click deep link pairing from web
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('crm-tracker', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('crm-tracker');
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const deepLinkUrl = commandLine.find((arg) => typeof arg === 'string' && arg.startsWith('crm-tracker://'));
+    if (deepLinkUrl) {
+      handleDeepLink(deepLinkUrl);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
 
 function getCurrentStatus() {
   if (forcedStatus) return forcedStatus;
@@ -197,6 +229,83 @@ function startHeartbeatTimer() {
   }, HEARTBEAT_INTERVAL_MS);
 }
 
+async function syncAttendanceStatus() {
+  if (!session) return;
+  try {
+    const res = await authenticatedRequest({ method: 'get', url: '/attendance/today' });
+    const attendance = res.data && res.data.attendance;
+    const isClockedInOnServer = Boolean(attendance && attendance.checkIn && !attendance.checkOut);
+
+    if (isClockedInOnServer && !tracking) {
+      console.log('Employee clocked in on web portal. Starting activity tracking...');
+      tracking = true;
+      lastError = '';
+      try {
+        saveSession();
+      } catch (err) {
+        console.error('Unable to save tracking state:', err);
+      }
+      publishState();
+      void sendHeartbeat();
+    } else if (!isClockedInOnServer && tracking) {
+      console.log('Employee clocked out on web portal. Stopping activity tracking...');
+      tracking = false;
+      lastError = '';
+      try {
+        saveSession();
+      } catch (err) {
+        console.error('Unable to save tracking state:', err);
+      }
+      publishState();
+    }
+  } catch (error) {
+    const statusCode = error.response && error.response.status;
+    if (statusCode === 401) {
+      clearSession();
+      lastError = 'Your login has expired. Please sign in again.';
+      publishState();
+    }
+  }
+}
+
+function startSyncTimer() {
+  if (syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(() => {
+    void syncAttendanceStatus();
+  }, SYNC_INTERVAL_MS);
+  void syncAttendanceStatus();
+}
+
+function handleDeepLink(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return;
+  try {
+    const parsed = new URL(urlStr);
+    const hostOrPath = (parsed.hostname || parsed.pathname || '').replace(/^\/+/, '');
+    if (hostOrPath === 'login' || hostOrPath === 'auth') {
+      const token = parsed.searchParams.get('token');
+      const id = parsed.searchParams.get('id');
+      const fullName = parsed.searchParams.get('name') || 'Employee';
+      const email = parsed.searchParams.get('email') || '';
+
+      if (token && id) {
+        session = {
+          token,
+          expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+          user: { id, fullName, email, role: 'employee' },
+        };
+        tracking = false;
+        lastError = '';
+        saveSession();
+        publishState();
+        void syncAttendanceStatus();
+        console.log(`Connected session via deep link for ${email}`);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to parse deep link URL:', err);
+  }
+}
+
 function createWindow(showWindow = true) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
@@ -281,10 +390,16 @@ async function login({ email, password }) {
     throw new Error('Secure local token storage is unavailable on this computer.');
   }
 
-  const response = await api.post('/auth/login', {
-    email: email.trim(),
-    password,
-  });
+  let response;
+  try {
+    response = await api.post('/auth/login', {
+      email: email.trim(),
+      password,
+    });
+  } catch (err) {
+    const message = err.response && err.response.data && err.response.data.error;
+    throw new Error(message || err.message || 'Invalid email or password.');
+  }
   const { token, expiresIn, user } = response.data;
   if (
     typeof token !== 'string' ||
@@ -322,8 +437,25 @@ async function beginTracking() {
   try {
     await authenticatedRequest({ method: 'post', url: '/attendance/clock-in' });
   } catch (error) {
-    const message = error.response && error.response.data && error.response.data.error;
-    throw new Error(message || error.message || 'Unable to clock in.');
+    const statusCode = error.response && error.response.status;
+    if (statusCode === 409) {
+      try {
+        const todayRes = await authenticatedRequest({ method: 'get', url: '/attendance/today' });
+        const att = todayRes.data && todayRes.data.attendance;
+        if (att && att.checkIn) {
+          // Attendance record exists for today - safe to resume tracking
+        } else {
+          const message = error.response && error.response.data && error.response.data.error;
+          throw new Error(message || 'Attendance is not open.');
+        }
+      } catch (innerErr) {
+        const message = error.response && error.response.data && error.response.data.error;
+        throw new Error(message || error.message || 'Unable to clock in.');
+      }
+    } else {
+      const message = error.response && error.response.data && error.response.data.error;
+      throw new Error(message || error.message || 'Unable to clock in.');
+    }
   }
 
   tracking = true;
@@ -408,6 +540,12 @@ app.whenReady().then(() => {
   tray.on('click', () => createWindow());
   updateTrayMenu();
   startHeartbeatTimer();
+  startSyncTimer();
+
+  const startupUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('crm-tracker://'));
+  if (startupUrl) {
+    handleDeepLink(startupUrl);
+  }
 
   powerMonitor.on('lock-screen', () => {
     forcedStatus = 'idle';
@@ -434,8 +572,14 @@ app.whenReady().then(() => {
   if (tracking) void sendHeartbeat();
 });
 
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
 app.on('activate', createWindow);
 app.on('before-quit', () => {
   isQuitting = true;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (syncTimer) clearInterval(syncTimer);
 });

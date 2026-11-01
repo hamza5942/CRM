@@ -26,8 +26,8 @@ function render(state) {
       ? `No input detected for ${Math.floor(state.idleThresholdSeconds / 60)} minutes or more.`
       : status === 'offline'
         ? 'The computer is locked, asleep, or disconnected.'
-        : 'System activity detected.'
-    : 'Start tracking to clock in and send status updates.';
+        : 'System activity detected (Mouse & keyboard active).'
+    : 'Waiting for Clock In on CRM website (or click Start tracking below).';
 
   trackingButton.textContent = state.tracking ? 'End tracking' : 'Start tracking';
   trackingButton.className = `button ${state.tracking ? 'secondary' : 'primary'}`;

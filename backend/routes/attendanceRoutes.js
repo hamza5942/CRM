@@ -16,9 +16,39 @@ function utcDayStart(date = new Date()) {
 
 router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
   const date = utcDayStart();
+  const checkInTime = new Date();
+
+  // Check if today's record already exists
+  let attendance = await Attendance.findOne({ userId: req.user.id, date });
+
+  if (attendance) {
+    if (!attendance.checkOut) {
+      // Already clocked in and currently active
+      return res.json({ attendance, message: 'Already clocked in.' });
+    }
+
+    // Previously clocked out today; resume the day's attendance
+    attendance.checkOut = null;
+    await attendance.save();
+
+    await Heartbeat.create({
+      userId: req.user.id,
+      status: 'active',
+      timestamp: checkInTime,
+    });
+
+    publishWorkspaceChange(req, 'attendance', {
+      action: 'clock-in',
+      userId: req.user.id,
+      checkIn: attendance.checkIn || checkInTime,
+      status: 'active',
+    });
+
+    return res.json({ attendance, message: 'Resumed attendance for today.' });
+  }
+
   try {
-    const checkInTime = new Date();
-    const attendance = await Attendance.create({
+    attendance = await Attendance.create({
       userId: req.user.id,
       date,
       checkIn: checkInTime,
@@ -41,7 +71,8 @@ router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
     return res.status(201).json({ attendance });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).json({ error: 'You have already clocked in today.' });
+      const existing = await Attendance.findOne({ userId: req.user.id, date });
+      return res.json({ attendance: existing });
     }
     throw error;
   }

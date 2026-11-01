@@ -8,6 +8,8 @@ import {
   Clock3,
   Coffee,
   ListTodo,
+  LogIn,
+  LogOut,
   Search,
 } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
@@ -358,6 +360,33 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
     );
   });
 
+  const isClockedIn = Boolean(todayRecord?.checkIn && !todayRecord?.checkOut);
+  const [clockPending, setClockPending] = useState(false);
+
+  const toggleClock = async () => {
+    setClockPending(true);
+    setError("");
+    try {
+      const wasClockedIn = isClockedIn;
+      await apiRequest(`attendance/${wasClockedIn ? "clock-out" : "clock-in"}`, {
+        method: "POST",
+        token: session.token,
+      });
+      if (!wasClockedIn) {
+        apiRequest("attendance/heartbeat", {
+          method: "POST",
+          token: session.token,
+          body: JSON.stringify({ status: "active" }),
+        }).catch(() => {});
+      }
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update clock status.");
+    } finally {
+      setClockPending(false);
+    }
+  };
+
   const cards = [
     {
       label: "Days Present",
@@ -409,11 +438,20 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <RealtimeBadge status={realtimeStatus} />
+          <button
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white shadow-sm transition focus:outline-none disabled:cursor-wait disabled:opacity-60 ${isClockedIn ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"}`}
+            disabled={clockPending || loading}
+            onClick={toggleClock}
+            type="button"
+          >
+            {isClockedIn ? <LogOut aria-hidden="true" className="h-3.5 w-3.5" /> : <LogIn aria-hidden="true" className="h-3.5 w-3.5" />}
+            {clockPending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
+          </button>
           <Link
-            className="inline-flex h-9 items-center gap-2 rounded-xl bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-100 px-3.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-200"
             href="/tasks"
           >
-            <ListTodo aria-hidden="true" className="h-4 w-4" />
+            <ListTodo aria-hidden="true" className="h-3.5 w-3.5" />
             Daily Portal
           </Link>
         </div>
