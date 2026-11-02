@@ -66,8 +66,10 @@ loginForm.addEventListener('submit', async (event) => {
   message.textContent = '';
   try {
     const form = new FormData(loginForm);
+    const email = (form.get('email') || '').toString().trim();
+    const password = (form.get('password') || '').toString();
     const state = await window.tracker.login({
-      email: form.get('email'),
+      email,
       password,
     });
     loginForm.reset();
