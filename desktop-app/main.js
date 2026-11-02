@@ -1,7 +1,12 @@
-require('dotenv').config();
-
 const fs = require('fs');
 const path = require('path');
+
+try {
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
+} catch (_) {
+  require('dotenv').config();
+}
+
 const axios = require('axios');
 const {
   app,
@@ -20,7 +25,8 @@ const IDLE_THRESHOLD_SECONDS = Math.max(
   1,
   Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 300
 );
-let rawApiBase = (process.env.API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+const DEFAULT_API_BASE = 'https://crm-backend-sepia-mu.vercel.app/api';
+let rawApiBase = (process.env.API_BASE_URL || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
 if (!rawApiBase.endsWith('/api')) {
   rawApiBase += '/api';
 }
@@ -397,6 +403,9 @@ async function login({ email, password }) {
       password,
     });
   } catch (err) {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      throw new Error(`Unable to connect to server (${API_BASE_URL}). Please verify your internet connection.`);
+    }
     const message = err.response && err.response.data && err.response.data.error;
     throw new Error(message || err.message || 'Invalid email or password.');
   }
