@@ -352,6 +352,11 @@ function createWindow(showWindow = true) {
 }
 
 function makeTrayIcon() {
+  const icoPath = path.join(__dirname, 'icon.ico');
+  if (fs.existsSync(icoPath)) {
+    const img = nativeImage.createFromPath(icoPath);
+    if (!img.isEmpty()) return img;
+  }
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
     '<rect x="2" y="2" width="28" height="28" rx="8" fill="#2563eb"/>',
