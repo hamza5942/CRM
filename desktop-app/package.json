@@ -12,6 +12,7 @@
   "build": {
     "appId": "com.codexcrm.employeetracker",
     "productName": "Employee Tracker",
+    "compression": "maximum",
     "win": {
       "target": [
         "nsis"
