@@ -160,6 +160,12 @@ router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
     timestamp: new Date(),
   });
 
+  if (status === 'active') {
+    await Attendance.updateOne({ _id: attendance._id }, { $inc: { totalActiveMinutes: 1 } });
+  } else if (status === 'idle') {
+    await Attendance.updateOne({ _id: attendance._id }, { $inc: { totalIdleMinutes: 1 } });
+  }
+
   publishWorkspaceChange(req, 'attendance', {
     action: 'heartbeat',
     userId: req.user.id,
@@ -175,6 +181,28 @@ router.get('/today', authMiddleware, async (req, res) => {
     userId: req.user.id,
     date: utcDayStart(),
   }).lean();
+
+  if (attendance && attendance.checkIn && !attendance.checkOut) {
+    const sampleCounts = await Heartbeat.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(req.user.id),
+          timestamp: { $gte: attendance.checkIn },
+          status: { $in: ['active', 'idle'] },
+        },
+      },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+    let activeMinutes = 0;
+    let idleMinutes = 0;
+    sampleCounts.forEach((item) => {
+      if (item._id === 'active') activeMinutes = item.count;
+      if (item._id === 'idle') idleMinutes = item.count;
+    });
+    attendance.totalActiveMinutes = activeMinutes;
+    attendance.totalIdleMinutes = idleMinutes;
+  }
+
   return res.json({ attendance });
 });
 
@@ -323,6 +351,26 @@ router.get('/daily', authMiddleware, async (req, res) => {
     const isFresh = clockedIn && latestHeartbeat && latestHeartbeat.timestamp >= cutoff;
     const status = isFresh ? latestHeartbeat.status : 'offline';
 
+    let activeMinutes = attendanceRecord?.totalActiveMinutes || 0;
+    let idleMinutes = attendanceRecord?.totalIdleMinutes || 0;
+
+    if (clockedIn && attendanceRecord?.checkIn) {
+      const sampleCounts = await Heartbeat.aggregate([
+        {
+          $match: {
+            userId: employeeId,
+            timestamp: { $gte: attendanceRecord.checkIn },
+            status: { $in: ['active', 'idle'] },
+          },
+        },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]);
+      sampleCounts.forEach((item) => {
+        if (item._id === 'active') activeMinutes = item.count;
+        if (item._id === 'idle') idleMinutes = item.count;
+      });
+    }
+
     const record = {
       user: {
         _id: req.user.id,
@@ -333,8 +381,8 @@ router.get('/daily', authMiddleware, async (req, res) => {
       clockedIn,
       checkIn: attendanceRecord?.checkIn || null,
       checkOut: attendanceRecord?.checkOut || null,
-      activeMinutes: attendanceRecord?.totalActiveMinutes || 0,
-      idleMinutes: attendanceRecord?.totalIdleMinutes || 0,
+      activeMinutes,
+      idleMinutes,
       lastHeartbeatAt: latestHeartbeat?.timestamp || null,
     };
 

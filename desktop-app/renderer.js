@@ -5,6 +5,13 @@ const message = document.getElementById('message');
 const trackingButton = document.getElementById('tracking-button');
 const logoutButton = document.getElementById('logout-button');
 
+function formatDuration(mins) {
+  const m = Math.max(0, Math.floor(mins || 0));
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return h > 0 ? `${h}h ${rem}m` : `${rem}m`;
+}
+
 function render(state) {
   loginView.hidden = state.authenticated;
   statusView.hidden = !state.authenticated;
@@ -21,13 +28,28 @@ function render(state) {
     : 'Not tracking';
   document.getElementById('status-pill').className = `status-pill ${state.tracking ? status : ''}`;
   document.querySelector('.status-dot').className = `status-dot ${state.tracking ? status : ''}`;
-  document.getElementById('status-detail').textContent = state.tracking
-    ? status === 'idle'
-      ? `No input detected for ${Math.floor(state.idleThresholdSeconds / 60)} minutes or more.`
-      : status === 'offline'
-        ? 'The computer is locked, asleep, or disconnected.'
-        : 'System activity detected (Mouse & keyboard active).'
-    : 'Waiting for Clock In on CRM website (or click Start tracking below).';
+
+  let detail = 'Waiting for Clock In on CRM website (or click Start tracking below).';
+  if (state.tracking) {
+    if (status === 'idle') {
+      const idleMins = Math.floor((state.currentIdleSeconds || 0) / 60);
+      detail = idleMins >= 1
+        ? `No mouse or keyboard activity for ${idleMins} minute${idleMins === 1 ? '' : 's'}.`
+        : 'Inactivity detected (system idle).';
+    } else if (status === 'offline') {
+      detail = 'The computer is locked, asleep, or disconnected.';
+    } else {
+      detail = 'System activity detected (Mouse & keyboard active).';
+    }
+  }
+  document.getElementById('status-detail').textContent = detail;
+
+  if (state.todayStats) {
+    const activeEl = document.getElementById('today-active');
+    const idleEl = document.getElementById('today-idle');
+    if (activeEl) activeEl.textContent = formatDuration(state.todayStats.activeMinutes);
+    if (idleEl) idleEl.textContent = formatDuration(state.todayStats.idleMinutes);
+  }
 
   trackingButton.textContent = state.tracking ? 'End tracking' : 'Start tracking';
   trackingButton.className = `button ${state.tracking ? 'secondary' : 'primary'}`;
@@ -46,7 +68,7 @@ loginForm.addEventListener('submit', async (event) => {
     const form = new FormData(loginForm);
     const state = await window.tracker.login({
       email: form.get('email'),
-      password: form.get('password'),
+      password,
     });
     loginForm.reset();
     render(state);

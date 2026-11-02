@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Employee Tracker</title>
@@ -46,6 +46,16 @@
             <p class="eyebrow">CURRENT STATUS</p>
             <p id="current-status" class="current-status">Offline</p>
             <p id="status-detail" class="subtitle"></p>
+          </div>
+        </div>
+        <div id="today-stats-panel" class="today-stats-panel" style="display: flex; justify-content: space-between; margin: 12px 0; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+          <div>
+            <p style="font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; color: #94a3b8;">TODAY ACTIVE</p>
+            <p id="today-active" style="font-size: 15px; font-weight: 700; margin: 2px 0 0 0; color: #38bdf8;">0m</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; color: #94a3b8;">TODAY IDLE</p>
+            <p id="today-idle" style="font-size: 15px; font-weight: 700; margin: 2px 0 0 0; color: #fbbf24;">0m</p>
           </div>
         </div>
         <button id="tracking-button" class="button primary" type="button">Start tracking</button>

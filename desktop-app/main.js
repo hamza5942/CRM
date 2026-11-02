@@ -43,6 +43,7 @@ let tracking = false;
 let forcedStatus = null;
 let lastError = '';
 let isQuitting = false;
+let todayStats = { activeMinutes: 0, idleMinutes: 0 };
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -87,12 +88,19 @@ function getCurrentStatus() {
 }
 
 function getPublicState() {
+  let currentIdleSeconds = 0;
+  try {
+    currentIdleSeconds = powerMonitor.getSystemIdleTime();
+  } catch (_) {}
+
   return {
     authenticated: Boolean(session),
     user: session ? session.user : null,
     tracking,
     status: session && tracking ? getCurrentStatus() : 'offline',
     idleThresholdSeconds: IDLE_THRESHOLD_SECONDS,
+    currentIdleSeconds,
+    todayStats,
     lastError,
   };
 }
@@ -203,6 +211,8 @@ async function sendHeartbeat(status = getCurrentStatus()) {
         timestamp: new Date().toISOString(),
       },
     });
+    if (status === 'active') todayStats.activeMinutes += 1;
+    if (status === 'idle') todayStats.idleMinutes += 1;
     if (lastError) lastError = '';
     publishState();
   } catch (error) {
@@ -240,6 +250,12 @@ async function syncAttendanceStatus() {
   try {
     const res = await authenticatedRequest({ method: 'get', url: '/attendance/today' });
     const attendance = res.data && res.data.attendance;
+    if (attendance) {
+      todayStats = {
+        activeMinutes: attendance.totalActiveMinutes || 0,
+        idleMinutes: attendance.totalIdleMinutes || 0,
+      };
+    }
     const isClockedInOnServer = Boolean(attendance && attendance.checkIn && !attendance.checkOut);
 
     if (isClockedInOnServer && !tracking) {
