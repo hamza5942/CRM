@@ -8,6 +8,8 @@ const attendanceSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
     totalActiveMinutes: { type: Number, default: 0, min: 0 },
     totalIdleMinutes: { type: Number, default: 0, min: 0 },
+    lastHeartbeatAt: { type: Date },
+    lastHeartbeatSource: { type: String, enum: ['desktop', 'web'], default: 'desktop' },
   },
   { timestamps: true }
 );

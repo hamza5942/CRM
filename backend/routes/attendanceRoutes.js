@@ -14,6 +14,38 @@ function utcDayStart(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+async function calculateAttendanceMinutes(userId, startTime, endTime = new Date()) {
+  const totals = await Heartbeat.aggregate([
+    {
+      $match: {
+        userId: new mongoose.Types.ObjectId(userId),
+        timestamp: { $gte: startTime, $lte: endTime },
+        status: { $in: ['active', 'idle'] },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: '%Y-%m-%d %H:%M', date: '$timestamp' },
+        },
+        hasActive: { $max: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalActiveMinutes: { $sum: '$hasActive' },
+        totalIdleMinutes: { $sum: { $cond: [{ $eq: ['$hasActive', 1] }, 0, 1] } },
+      },
+    },
+  ]);
+  const summary = totals[0] || { totalActiveMinutes: 0, totalIdleMinutes: 0 };
+  return {
+    totalActiveMinutes: summary.totalActiveMinutes || 0,
+    totalIdleMinutes: summary.totalIdleMinutes || 0,
+  };
+}
+
 router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
   const date = utcDayStart();
   const checkInTime = new Date();
@@ -29,11 +61,14 @@ router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
 
     // Previously clocked out today; resume the day's attendance
     attendance.checkOut = null;
+    attendance.lastHeartbeatAt = checkInTime;
+    attendance.lastHeartbeatSource = 'desktop';
     await attendance.save();
 
     await Heartbeat.create({
       userId: req.user.id,
       status: 'active',
+      source: 'desktop',
       timestamp: checkInTime,
     });
 
@@ -52,12 +87,15 @@ router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
       userId: req.user.id,
       date,
       checkIn: checkInTime,
+      lastHeartbeatAt: checkInTime,
+      lastHeartbeatSource: 'desktop',
     });
 
     // Create an immediate active heartbeat so the status shows 'active' immediately
     await Heartbeat.create({
       userId: req.user.id,
       status: 'active',
+      source: 'desktop',
       timestamp: checkInTime,
     });
 
@@ -92,24 +130,7 @@ router.post('/clock-out', authMiddleware, isEmployee, async (req, res) => {
   }
 
   const checkOut = new Date();
-  const totals = await Heartbeat.aggregate([
-    {
-      $match: {
-        userId: new mongoose.Types.ObjectId(req.user.id),
-        timestamp: { $gte: attendance.checkIn, $lte: checkOut },
-        status: { $in: ['active', 'idle'] },
-      },
-    },
-    { $group: { _id: '$status', minutes: { $sum: 1 } } },
-  ]);
-  const summary = totals.reduce(
-    (result, item) => {
-      if (item._id === 'active') result.totalActiveMinutes = item.minutes;
-      if (item._id === 'idle') result.totalIdleMinutes = item.minutes;
-      return result;
-    },
-    { totalActiveMinutes: 0, totalIdleMinutes: 0 }
-  );
+  const summary = await calculateAttendanceMinutes(req.user.id, attendance.checkIn, checkOut);
 
   const updated = await Attendance.findOneAndUpdate(
     { _id: attendance._id, checkOut: null },
@@ -124,6 +145,7 @@ router.post('/clock-out', authMiddleware, isEmployee, async (req, res) => {
   await Heartbeat.create({
     userId: req.user.id,
     status: 'offline',
+    source: 'desktop',
     timestamp: checkOut,
   });
 
@@ -139,7 +161,7 @@ router.post('/clock-out', authMiddleware, isEmployee, async (req, res) => {
 });
 
 router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
-  const { status } = req.body || {};
+  const { status, source = 'desktop' } = req.body || {};
   if (!['active', 'idle', 'offline'].includes(status)) {
     return res.status(400).json({ error: 'Status must be active, idle, or offline.' });
   }
@@ -149,27 +171,59 @@ router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
     date: utcDayStart(),
     checkIn: { $ne: null },
     checkOut: null,
-  }).select('_id');
+  });
   if (!attendance) {
     return res.status(409).json({ error: 'Clock in before sending a heartbeat.' });
+  }
+
+  const now = new Date();
+
+  // Desktop precedence check:
+  // If desktop app is actively running (sent a heartbeat within last 90s), ignore browser tab heartbeats
+  // so browser doesn't override desktop OS idle detection or duplicate pulses.
+  const hasRecentDesktop =
+    attendance.lastHeartbeatSource === 'desktop' &&
+    attendance.lastHeartbeatAt &&
+    now.getTime() - new Date(attendance.lastHeartbeatAt).getTime() < 90000;
+
+  if (source === 'web' && hasRecentDesktop) {
+    return res.json({ message: 'Desktop tracker active, web pulse bypassed.' });
   }
 
   const heartbeat = await Heartbeat.create({
     userId: req.user.id,
     status,
-    timestamp: new Date(),
+    source,
+    timestamp: now,
   });
 
-  if (status === 'active') {
-    await Attendance.updateOne({ _id: attendance._id }, { $inc: { totalActiveMinutes: 1 } });
-  } else if (status === 'idle') {
-    await Attendance.updateOne({ _id: attendance._id }, { $inc: { totalIdleMinutes: 1 } });
+  // Deduplication check: only increment minutes if >= 45s since last counted heartbeat
+  const timeSinceLast = attendance.lastHeartbeatAt
+    ? now.getTime() - new Date(attendance.lastHeartbeatAt).getTime()
+    : Infinity;
+
+  const updateDoc = {
+    $set: {
+      lastHeartbeatAt: now,
+      lastHeartbeatSource: source,
+    },
+  };
+
+  if (timeSinceLast >= 45000) {
+    if (status === 'active') {
+      updateDoc.$inc = { totalActiveMinutes: 1 };
+    } else if (status === 'idle') {
+      updateDoc.$inc = { totalIdleMinutes: 1 };
+    }
   }
+
+  await Attendance.updateOne({ _id: attendance._id }, updateDoc);
 
   publishWorkspaceChange(req, 'attendance', {
     action: 'heartbeat',
     userId: req.user.id,
     status,
+    source,
     timestamp: heartbeat.timestamp,
   });
 
@@ -183,24 +237,9 @@ router.get('/today', authMiddleware, async (req, res) => {
   }).lean();
 
   if (attendance && attendance.checkIn && !attendance.checkOut) {
-    const sampleCounts = await Heartbeat.aggregate([
-      {
-        $match: {
-          userId: new mongoose.Types.ObjectId(req.user.id),
-          timestamp: { $gte: attendance.checkIn },
-          status: { $in: ['active', 'idle'] },
-        },
-      },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]);
-    let activeMinutes = 0;
-    let idleMinutes = 0;
-    sampleCounts.forEach((item) => {
-      if (item._id === 'active') activeMinutes = item.count;
-      if (item._id === 'idle') idleMinutes = item.count;
-    });
-    attendance.totalActiveMinutes = activeMinutes;
-    attendance.totalIdleMinutes = idleMinutes;
+    const summary = await calculateAttendanceMinutes(req.user.id, attendance.checkIn, new Date());
+    attendance.totalActiveMinutes = summary.totalActiveMinutes;
+    attendance.totalIdleMinutes = summary.totalIdleMinutes;
   }
 
   return res.json({ attendance });
@@ -265,20 +304,9 @@ router.get('/history', authMiddleware, async (req, res) => {
         const isFresh = latestHeartbeat && latestHeartbeat.timestamp >= cutoff;
         status = isFresh ? latestHeartbeat.status : 'in_progress';
 
-        const sampleCounts = await Heartbeat.aggregate([
-          {
-            $match: {
-              userId: new mongoose.Types.ObjectId(targetUserId),
-              timestamp: { $gte: record.checkIn },
-              status: { $in: ['active', 'idle'] },
-            },
-          },
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]);
-        sampleCounts.forEach((item) => {
-          if (item._id === 'active') activeMinutes = item.count;
-          if (item._id === 'idle') idleMinutes = item.count;
-        });
+        const summary = await calculateAttendanceMinutes(targetUserId, record.checkIn, new Date());
+        activeMinutes = summary.totalActiveMinutes;
+        idleMinutes = summary.totalIdleMinutes;
       }
 
       return {
@@ -355,20 +383,9 @@ router.get('/daily', authMiddleware, async (req, res) => {
     let idleMinutes = attendanceRecord?.totalIdleMinutes || 0;
 
     if (clockedIn && attendanceRecord?.checkIn) {
-      const sampleCounts = await Heartbeat.aggregate([
-        {
-          $match: {
-            userId: employeeId,
-            timestamp: { $gte: attendanceRecord.checkIn },
-            status: { $in: ['active', 'idle'] },
-          },
-        },
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]);
-      sampleCounts.forEach((item) => {
-        if (item._id === 'active') activeMinutes = item.count;
-        if (item._id === 'idle') idleMinutes = item.count;
-      });
+      const summary = await calculateAttendanceMinutes(employeeId, attendanceRecord.checkIn, new Date());
+      activeMinutes = summary.totalActiveMinutes;
+      idleMinutes = summary.totalIdleMinutes;
     }
 
     const record = {
@@ -406,11 +423,23 @@ router.get('/daily', authMiddleware, async (req, res) => {
           { $sort: { timestamp: -1 } },
           {
             $group: {
-              _id: '$userId',
+              _id: {
+                userId: '$userId',
+                minute: { $dateToString: { format: '%Y-%m-%d %H:%M', date: '$timestamp' } },
+              },
               status: { $first: '$status' },
               timestamp: { $first: '$timestamp' },
-              activeSamples: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-              idleSamples: { $sum: { $cond: [{ $eq: ['$status', 'idle'] }, 1, 0] } },
+              hasActive: { $max: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
+            },
+          },
+          { $sort: { timestamp: -1 } },
+          {
+            $group: {
+              _id: '$_id.userId',
+              status: { $first: '$status' },
+              timestamp: { $first: '$timestamp' },
+              activeSamples: { $sum: '$hasActive' },
+              idleSamples: { $sum: { $cond: [{ $eq: ['$hasActive', 1] }, 0, 1] } },
             },
           },
         ])

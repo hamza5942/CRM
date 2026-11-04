@@ -23,7 +23,7 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 const SYNC_INTERVAL_MS = 10_000;
 const IDLE_THRESHOLD_SECONDS = Math.max(
   1,
-  Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 300
+  Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 180
 );
 const DEFAULT_API_BASE = 'https://crm-backend-sepia-mu.vercel.app/api';
 let rawApiBase = (process.env.API_BASE_URL || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
@@ -208,6 +208,7 @@ async function sendHeartbeat(status = getCurrentStatus()) {
       data: {
         userId: session.user.id,
         status,
+        source: 'desktop',
         timestamp: new Date().toISOString(),
       },
     });

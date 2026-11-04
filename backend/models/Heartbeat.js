@@ -4,6 +4,7 @@ const heartbeatSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ['active', 'idle', 'offline'], required: true },
+    source: { type: String, enum: ['desktop', 'web'], default: 'desktop' },
     timestamp: { type: Date, default: Date.now },
   },
   { timestamps: true }

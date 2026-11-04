@@ -19,7 +19,7 @@ import { ApiError, apiRequest } from "../../lib/api";
 import { useWorkspaceUpdates, useRealtimeStatus } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
 
-const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
+const IDLE_THRESHOLD_MS = 3 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const TASK_STATUSES = ["pending", "in_progress", "completed"];
 
@@ -94,7 +94,6 @@ export default function EmployeeDailyPortal() {
         setAttendance(attendanceResult.attendance);
       }
       setToday(new Date());
-      lastActivityRef.current = Date.now();
       setError("");
     } catch (requestError) {
       handleError(requestError);
@@ -142,7 +141,7 @@ export default function EmployeeDailyPortal() {
         await apiRequest("attendance/heartbeat", {
           method: "POST",
           token: session.token,
-          body: JSON.stringify({ status: idle ? "idle" : "active" }),
+          body: JSON.stringify({ status: idle ? "idle" : "active", source: "web" }),
         });
       } catch (heartbeatError) {
         if (heartbeatError instanceof ApiError && heartbeatError.status === 409) {
