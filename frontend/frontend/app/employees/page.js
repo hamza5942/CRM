@@ -8,7 +8,7 @@ import { useAuth } from "../../components/AuthContext";
 
 const inputClassName = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
 
-const emptyCreateForm = { fullName: "", email: "", password: "", confirmPassword: "" };
+const emptyCreateForm = { fullName: "", email: "", designation: "", password: "", confirmPassword: "" };
 
 function normalizeEmployee(user) {
   const id = user?.id ?? user?._id;
@@ -27,7 +27,7 @@ export default function EmployeesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [editingEmployee, setEditingEmployee] = useState(null);
-  const [editForm, setEditForm] = useState({ fullName: "", email: "", password: "" });
+  const [editForm, setEditForm] = useState({ fullName: "", email: "", designation: "", password: "" });
   const [createdEmployee, setCreatedEmployee] = useState(null);
 
   const handleError = useCallback((requestError) => {
@@ -81,6 +81,7 @@ export default function EmployeesPage() {
         body: JSON.stringify({
           fullName: createForm.fullName.trim(),
           email: createForm.email.trim().toLowerCase(),
+          designation: createForm.designation.trim(),
           password: createForm.password,
           role: "employee",
         }),
@@ -104,7 +105,12 @@ export default function EmployeesPage() {
     }
     setError("");
     setEditingEmployee(employee);
-    setEditForm({ fullName: employee.fullName, email: employee.email, password: "" });
+    setEditForm({
+      fullName: employee.fullName,
+      email: employee.email,
+      designation: employee.designation || "",
+      password: "",
+    });
   };
 
   const saveEdit = async (event) => {
@@ -114,6 +120,7 @@ export default function EmployeesPage() {
     const updates = {
       fullName: editForm.fullName.trim(),
       email: editForm.email.trim().toLowerCase(),
+      designation: editForm.designation.trim(),
     };
     if (editForm.password) updates.password = editForm.password;
 
@@ -203,7 +210,7 @@ export default function EmployeesPage() {
         <div>
           <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">Team access</p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Employees</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage employee details and account access. Deactivation can be reversed; permanent deletion keeps task and attendance records.</p>
+          <p className="mt-2 text-sm text-slate-500">Manage employee details, designations, and account access. Deactivation can be reversed; permanent deletion keeps task and attendance records.</p>
         </div>
         <button className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:self-auto" onClick={() => { setCreateOpen((open) => !open); setError(""); }} type="button">
           {createOpen ? <X aria-hidden="true" className="h-4 w-4" /> : <UserPlus aria-hidden="true" className="h-4 w-4" />}
@@ -214,7 +221,7 @@ export default function EmployeesPage() {
       {error && <p className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700" role="alert">{error}</p>}
       {createdEmployee && (
         <p className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800" role="status">
-          Account created for <strong>{createdEmployee.fullName}</strong> ({createdEmployee.email}). Share the initial password securely.
+          Account created for <strong>{createdEmployee.fullName}</strong>{createdEmployee.designation ? ` (${createdEmployee.designation})` : ""} — {createdEmployee.email}. Share the initial password securely.
         </p>
       )}
 
@@ -227,6 +234,7 @@ export default function EmployeesPage() {
           <form className="grid gap-5 sm:grid-cols-2" onSubmit={createEmployee}>
             <label className="text-sm font-medium text-slate-700" htmlFor="employee-name">Full name<input autoComplete="name" className={`${inputClassName} mt-2`} id="employee-name" onChange={(event) => setCreateForm({ ...createForm, fullName: event.target.value })} placeholder="Employee name" required value={createForm.fullName} /></label>
             <label className="text-sm font-medium text-slate-700" htmlFor="employee-email">Work email<input autoComplete="email" className={`${inputClassName} mt-2`} id="employee-email" onChange={(event) => setCreateForm({ ...createForm, email: event.target.value })} placeholder="employee@company.com" required type="email" value={createForm.email} /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2" htmlFor="employee-designation">Designation / Role<input className={`${inputClassName} mt-2`} id="employee-designation" onChange={(event) => setCreateForm({ ...createForm, designation: event.target.value })} placeholder="e.g. Senior Frontend Developer, QA Engineer, Sales Lead" value={createForm.designation} /></label>
             <label className="text-sm font-medium text-slate-700" htmlFor="employee-password">Initial password<input autoComplete="new-password" className={`${inputClassName} mt-2`} id="employee-password" minLength={8} onChange={(event) => setCreateForm({ ...createForm, password: event.target.value })} required type="password" value={createForm.password} /><span className="mt-1 block text-xs font-normal text-slate-400">At least 8 characters.</span></label>
             <label className="text-sm font-medium text-slate-700" htmlFor="employee-password-confirm">Confirm password<input autoComplete="new-password" className={`${inputClassName} mt-2`} id="employee-password-confirm" minLength={8} onChange={(event) => setCreateForm({ ...createForm, confirmPassword: event.target.value })} required type="password" value={createForm.confirmPassword} /></label>
             <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70 sm:col-span-2 sm:w-fit" disabled={pending} type="submit"><UserPlus aria-hidden="true" className="h-4 w-4" />{pending ? "Creating account…" : "Create employee account"}</button>
@@ -250,7 +258,17 @@ export default function EmployeesPage() {
                 <article className={`flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:px-6 ${active ? "" : "bg-slate-50/70"}`} key={employee.id}>
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">{initials}</span>
-                    <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{employee.fullName}</p><p className="truncate text-xs text-slate-500">{employee.email}</p></div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-800">{employee.fullName}</p>
+                        {employee.designation && (
+                          <span className="inline-flex items-center rounded-md border border-indigo-100 bg-indigo-50/80 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                            {employee.designation}
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-slate-500">{employee.email}</p>
+                    </div>
                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{active ? "Active" : "Deactivated"}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -271,12 +289,13 @@ export default function EmployeesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingEmployee(null); }}>
           <section aria-labelledby="edit-employee-title" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl sm:p-7" role="dialog">
             <div className="mb-5 flex items-start justify-between gap-4">
-              <div><h2 className="text-lg font-semibold text-slate-900" id="edit-employee-title">Edit employee</h2><p className="mt-1 text-xs text-slate-500">Leave the password blank to keep the current one.</p></div>
+              <div><h2 className="text-lg font-semibold text-slate-900" id="edit-employee-title">Edit employee</h2><p className="mt-1 text-xs text-slate-500">Update employee details or designation. Leave password blank to keep current.</p></div>
               <button aria-label="Close edit employee form" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setEditingEmployee(null)} type="button"><X aria-hidden="true" className="h-4 w-4" /></button>
             </div>
             <form className="space-y-4" onSubmit={saveEdit}>
               <label className="block text-sm font-medium text-slate-700" htmlFor="edit-employee-name">Full name<input className={`${inputClassName} mt-2`} id="edit-employee-name" onChange={(event) => setEditForm({ ...editForm, fullName: event.target.value })} required value={editForm.fullName} /></label>
               <label className="block text-sm font-medium text-slate-700" htmlFor="edit-employee-email">Email<input className={`${inputClassName} mt-2`} id="edit-employee-email" onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} required type="email" value={editForm.email} /></label>
+              <label className="block text-sm font-medium text-slate-700" htmlFor="edit-employee-designation">Designation / Role<input className={`${inputClassName} mt-2`} id="edit-employee-designation" onChange={(event) => setEditForm({ ...editForm, designation: event.target.value })} placeholder="e.g. Senior Frontend Developer, QA Engineer" value={editForm.designation} /></label>
               <label className="block text-sm font-medium text-slate-700" htmlFor="edit-employee-password">Reset password<input autoComplete="new-password" className={`${inputClassName} mt-2`} id="edit-employee-password" minLength={8} onChange={(event) => setEditForm({ ...editForm, password: event.target.value })} placeholder="Leave blank to keep current password" type="password" value={editForm.password} /></label>
               <div className="flex justify-end gap-2 pt-2">
                 <button className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={() => setEditingEmployee(null)} type="button">Cancel</button>

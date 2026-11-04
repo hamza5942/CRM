@@ -8,6 +8,8 @@ const leadSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     website: { type: String, trim: true },
     domainName: { type: String, trim: true },
+    domainStartDate: { type: Date },
+    domainEndDate: { type: Date },
     websiteName: { type: String, trim: true },
     techStack: { type: String, trim: true },
     websiteProjectStartDate: { type: Date },

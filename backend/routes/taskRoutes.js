@@ -44,7 +44,7 @@ router.post('/', async (req, res) => {
     ...(date !== undefined && { date }),
   });
 
-  const populated = await Task.findById(task._id).populate('userId', 'fullName email role').lean();
+  const populated = await Task.findById(task._id).populate('userId', 'fullName email role designation').lean();
   publishWorkspaceChange(req, 'tasks', { action: 'create', task: populated });
   return res.status(201).json({ task: populated });
 });
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
 
   const [tasks, total] = await Promise.all([
     Task.find(filter)
-      .populate('userId', 'fullName email role')
+      .populate('userId', 'fullName email role designation')
       .sort({ date: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -79,7 +79,7 @@ router.get('/:id', async (req, res) => {
   const filter = { _id: req.params.id };
   if (req.user.role !== 'admin') filter.userId = req.user.id;
 
-  const task = await Task.findOne(filter).populate('userId', 'fullName email role');
+  const task = await Task.findOne(filter).populate('userId', 'fullName email role designation');
   if (!task) return res.status(404).json({ error: 'Task not found.' });
   return res.json({ task });
 });
@@ -114,7 +114,7 @@ async function updateTask(req, res) {
   const task = await Task.findOneAndUpdate(filter, { $set: updates }, {
     new: true,
     runValidators: true,
-  }).populate('userId', 'fullName email role');
+  }).populate('userId', 'fullName email role designation');
   if (!task) return res.status(404).json({ error: 'Task not found.' });
 
   publishWorkspaceChange(req, 'tasks', { action: 'update', task });

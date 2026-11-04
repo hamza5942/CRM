@@ -219,7 +219,14 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                           {initials}
                         </span>
                         <span>
-                          <span className="block text-xs font-semibold text-slate-800">{employee.user?.fullName}</span>
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="block text-xs font-semibold text-slate-800">{employee.user?.fullName}</span>
+                            {employee.user?.designation && (
+                              <span className="inline-flex items-center rounded border border-indigo-100 bg-indigo-50/80 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700">
+                                {employee.user.designation}
+                              </span>
+                            )}
+                          </span>
                           <span className="mt-0.5 block text-[10px] text-slate-400">{employee.user?.email}</span>
                         </span>
                       </div>
@@ -432,7 +439,9 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
     <>
       <header className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">My Profile</p>
+          <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">
+            {session.designation ? `${session.designation} · Profile` : "My Profile"}
+          </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">My Attendance</h1>
           <p className="mt-2 text-sm text-slate-500">Your daily attendance history, clock-in/out records, and active work hours.</p>
         </div>

@@ -131,6 +131,7 @@ export default function AuthShell({ children }) {
         role: result.user.role,
         fullName: result.user.fullName,
         email: result.user.email,
+        designation: result.user.designation || "",
       };
       persistSession(nextSession);
       setSession(nextSession);
@@ -174,7 +175,13 @@ export default function AuthShell({ children }) {
 
   return (
     <AuthContext.Provider value={{ session, logout }}>
-      <Sidebar email={session.email} fullName={session.fullName} onLogout={logout} role={session.role} />
+      <Sidebar
+        designation={session.designation}
+        email={session.email}
+        fullName={session.fullName}
+        onLogout={logout}
+        role={session.role}
+      />
       <main className="min-h-screen md:pl-64">
         <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-9 lg:py-8">{children}</div>
       </main>

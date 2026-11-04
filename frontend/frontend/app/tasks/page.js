@@ -85,6 +85,7 @@ export default function EmployeeDailyPortal() {
         title: task.taskTitle,
         status: task.status,
         assignee: task.userId && typeof task.userId === "object" ? task.userId.fullName : "",
+        assigneeDesignation: task.userId && typeof task.userId === "object" ? task.userId.designation : "",
       })));
       if (session.role === "admin") {
         const nextEmployees = attendanceResult.employees.map(({ user }) => user);
@@ -268,7 +269,11 @@ export default function EmployeeDailyPortal() {
         <div>
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">
             <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-            {session.role === "admin" ? "Workspace tasks" : "Employee daily portal"}
+            {session.role === "admin"
+              ? "Workspace tasks"
+              : session.designation
+              ? `${session.designation} · Daily portal`
+              : "Employee daily portal"}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
             {session.role === "admin" ? "Team tasks" : `Welcome back, ${session.fullName}`}
@@ -359,7 +364,11 @@ export default function EmployeeDailyPortal() {
           )}
           {session.role === "admin" && (
             <select className="h-11 max-w-48 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" id="task-assignee" onChange={(event) => setAssignedUserId(event.target.value)} value={assignedUserId}>
-              {employees.length ? employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.fullName}</option>) : <option value="">No employees available</option>}
+              {employees.length ? employees.map((employee) => (
+                <option key={employee._id} value={employee._id}>
+                  {employee.fullName}{employee.designation ? ` (${employee.designation})` : ""}
+                </option>
+              )) : <option value="">No employees available</option>}
             </select>
           )}
           <button aria-label="Add task" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" disabled={!newTask.trim() || pending || loading || (session.role === "admin" && !assignedUserId)} type="submit">
@@ -381,7 +390,14 @@ export default function EmployeeDailyPortal() {
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${task.status === "completed" ? "text-emerald-600" : "text-slate-300"}`}>
                     {task.status === "completed" ? <CheckCircle2 aria-hidden="true" className="h-5 w-5" /> : <Circle aria-hidden="true" className="h-5 w-5" />}
                   </span>
-                  <span className={`min-w-0 flex-1 text-sm ${task.status === "completed" ? "text-slate-400 line-through" : "text-slate-700"}`}>{task.title}{session.role === "admin" && task.assignee && <span className="ml-2 text-xs text-slate-400">· {task.assignee}</span>}</span>
+                  <span className={`min-w-0 flex-1 text-sm ${task.status === "completed" ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                    {task.title}
+                    {session.role === "admin" && task.assignee && (
+                      <span className="ml-2 text-xs text-slate-400">
+                        · {task.assignee}{task.assigneeDesignation ? ` (${task.assigneeDesignation})` : ""}
+                      </span>
+                    )}
+                  </span>
                   <label className="sr-only" htmlFor={`task-status-${task.id}`}>Status for {task.title}</label>
                   <select className={`max-w-32 rounded-full border-0 py-1 pl-2.5 pr-7 text-[10px] font-semibold outline-none focus:ring-2 focus:ring-indigo-200 ${statusClasses(task.status)}`} id={`task-status-${task.id}`} onChange={(event) => updateTaskStatus(task, event.target.value)} value={task.status}>
                     {TASK_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}

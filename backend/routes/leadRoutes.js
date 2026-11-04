@@ -13,6 +13,8 @@ const LEAD_FIELDS = [
   'phone',
   'website',
   'domainName',
+  'domainStartDate',
+  'domainEndDate',
   'websiteName',
   'techStack',
   'websiteProjectStartDate',

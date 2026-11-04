@@ -393,6 +393,7 @@ router.get('/daily', authMiddleware, async (req, res) => {
         _id: req.user.id,
         fullName: req.user.fullName,
         email: req.user.email,
+        designation: req.user.designation || '',
       },
       status,
       clockedIn,
@@ -408,7 +409,7 @@ router.get('/daily', authMiddleware, async (req, res) => {
 
   // When called by an admin, return all active employees
   const employees = await User.find({ role: 'employee', isActive: { $ne: false } })
-    .select('_id fullName email')
+    .select('_id fullName email designation')
     .sort({ fullName: 1 })
     .lean();
   const employeeIds = employees.map((employee) => employee._id);
@@ -501,6 +502,7 @@ router.get('/live', authMiddleware, async (req, res) => {
             _id: req.user.id,
             fullName: req.user.fullName,
             email: req.user.email,
+            designation: req.user.designation || '',
           },
           status: isFresh ? latestHeartbeat.status : 'offline',
           clockedIn,
@@ -511,7 +513,7 @@ router.get('/live', authMiddleware, async (req, res) => {
   }
 
   const employees = await User.find({ role: 'employee', isActive: { $ne: false } })
-    .select('_id fullName email')
+    .select('_id fullName email designation')
     .sort({ fullName: 1 })
     .lean();
   const employeeIds = employees.map((employee) => employee._id);

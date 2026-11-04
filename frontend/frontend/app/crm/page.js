@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
 import { useWorkspaceUpdates } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
@@ -22,23 +22,62 @@ const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, {
 
 const fieldClassName = "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
 
-function LeadCard({ lead, onStatusChange, onDelete, pending }) {
+function formatDateValue(val) {
+  if (!val) return "";
+  try {
+    return new Date(val).toISOString().slice(0, 10);
+  } catch {
+    return String(val).slice(0, 10);
+  }
+}
+
+function LeadCard({ lead, onStatusChange, onEdit, onDelete, pending }) {
   const stage = STAGES.find((item) => item.value === lead.status) || STAGES[0];
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/40 transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-indigo-700`}>{lead.clientName?.[0]?.toUpperCase() || "L"}</span>
-          <div className="min-w-0"><h3 className="truncate text-sm font-semibold text-slate-800">{lead.clientName}</h3><p className="truncate text-[11px] text-slate-500">{lead.companyName || lead.email || "No company or email provided"}</p></div>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-indigo-700">
+            {lead.clientName?.[0]?.toUpperCase() || "L"}
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-slate-800">{lead.clientName}</h3>
+            <p className="truncate text-[11px] text-slate-500">{lead.companyName || lead.email || "No company or email provided"}</p>
+          </div>
         </div>
-        <button aria-label={`Delete lead ${lead.clientName}`} className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50" disabled={pending} onClick={() => onDelete(lead)} type="button"><Trash2 aria-hidden="true" className="h-4 w-4" /></button>
+        <div className="flex items-center gap-1">
+          <button
+            aria-label={`Edit lead ${lead.clientName}`}
+            className="shrink-0 rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+            disabled={pending}
+            onClick={() => onEdit(lead)}
+            type="button"
+          >
+            <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+          <button
+            aria-label={`Delete lead ${lead.clientName}`}
+            className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+            disabled={pending}
+            onClick={() => onDelete(lead)}
+            type="button"
+          >
+            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <p className="mt-4 text-lg font-semibold tracking-tight text-slate-900">{CURRENCY_FORMAT.format(Number(lead.dealValue) || 0)}</p>
       {lead.notes && <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">{lead.notes}</p>}
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
         <span className="truncate text-[11px] text-slate-500">{lead.email || lead.phone || "No contact details"}</span>
         <label className="sr-only" htmlFor={`lead-status-${lead._id}`}>Stage for {lead.clientName}</label>
-        <select className="max-w-32 rounded-full border-0 bg-slate-100 py-1 pl-2.5 pr-7 text-[10px] font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200" disabled={pending} id={`lead-status-${lead._id}`} onChange={(event) => onStatusChange(lead, event.target.value)} value={stage.value}>
+        <select
+          className="max-w-32 rounded-full border-0 bg-slate-100 py-1 pl-2.5 pr-7 text-[10px] font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200"
+          disabled={pending}
+          id={`lead-status-${lead._id}`}
+          onChange={(event) => onStatusChange(lead, event.target.value)}
+          value={stage.value}
+        >
           {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </div>
@@ -61,6 +100,8 @@ export default function CrmPage() {
     phone: "",
     website: "",
     domainName: "",
+    domainStartDate: "",
+    domainEndDate: "",
     websiteName: "",
     techStack: "",
     websiteProjectStartDate: "",
@@ -68,6 +109,10 @@ export default function CrmPage() {
     dealValue: "",
     notes: "",
   });
+
+  const [editingLead, setEditingLead] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editPending, setEditPending] = useState(false);
 
   const handleError = useCallback((requestError) => {
     if (requestError instanceof ApiError && requestError.status === 401) {
@@ -102,6 +147,7 @@ export default function CrmPage() {
       .filter((lead) => lead.status === stage.value)
       .reduce((sum, lead) => sum + (Number(lead.dealValue) || 0), 0),
   })), [leads]);
+
   const openLeads = leads.filter((lead) => lead.status !== "closed");
   const totalValue = openLeads.reduce((sum, lead) => sum + (Number(lead.dealValue) || 0), 0);
   const closedValue = leads.filter((lead) => lead.status === "closed").reduce((sum, lead) => sum + (Number(lead.dealValue) || 0), 0);
@@ -121,6 +167,8 @@ export default function CrmPage() {
           phone: form.phone.trim(),
           website: form.website.trim(),
           domainName: form.domainName.trim(),
+          domainStartDate: form.domainStartDate || undefined,
+          domainEndDate: form.domainEndDate || undefined,
           websiteName: form.websiteName.trim(),
           techStack: form.techStack.trim(),
           websiteProjectStartDate: form.websiteProjectStartDate || undefined,
@@ -137,6 +185,8 @@ export default function CrmPage() {
         phone: "",
         website: "",
         domainName: "",
+        domainStartDate: "",
+        domainEndDate: "",
         websiteName: "",
         techStack: "",
         websiteProjectStartDate: "",
@@ -152,6 +202,64 @@ export default function CrmPage() {
     }
   };
 
+  const beginEditLead = (lead) => {
+    setEditingLead(lead);
+    setEditForm({
+      clientName: lead.clientName || "",
+      companyName: lead.companyName || "",
+      email: lead.email || "",
+      phone: lead.phone || "",
+      website: lead.website || "",
+      domainName: lead.domainName || "",
+      domainStartDate: formatDateValue(lead.domainStartDate),
+      domainEndDate: formatDateValue(lead.domainEndDate),
+      websiteName: lead.websiteName || "",
+      techStack: lead.techStack || "",
+      websiteProjectStartDate: formatDateValue(lead.websiteProjectStartDate),
+      websiteProjectEndDate: formatDateValue(lead.websiteProjectEndDate),
+      dealValue: lead.dealValue ?? 0,
+      notes: lead.notes || "",
+      status: lead.status || "new",
+    });
+  };
+
+  const saveEditLead = async (event) => {
+    event.preventDefault();
+    if (!editingLead || !editForm) return;
+    setEditPending(true);
+    setError("");
+    try {
+      const result = await apiRequest(`leads/${editingLead._id}`, {
+        method: "PATCH",
+        token: session.token,
+        body: JSON.stringify({
+          clientName: editForm.clientName.trim(),
+          companyName: editForm.companyName.trim(),
+          email: editForm.email.trim(),
+          phone: editForm.phone.trim(),
+          website: editForm.website.trim(),
+          domainName: editForm.domainName.trim(),
+          domainStartDate: editForm.domainStartDate || null,
+          domainEndDate: editForm.domainEndDate || null,
+          websiteName: editForm.websiteName.trim(),
+          techStack: editForm.techStack.trim(),
+          websiteProjectStartDate: editForm.websiteProjectStartDate || null,
+          websiteProjectEndDate: editForm.websiteProjectEndDate || null,
+          dealValue: editForm.dealValue === "" ? 0 : Number(editForm.dealValue),
+          notes: editForm.notes.trim(),
+          status: editForm.status,
+        }),
+      });
+      setLeads((current) => current.map((item) => (item._id === editingLead._id ? result.lead : item)));
+      setEditingLead(null);
+      setEditForm(null);
+    } catch (requestError) {
+      handleError(requestError);
+    } finally {
+      setEditPending(false);
+    }
+  };
+
   const updateLeadStatus = async (lead, status) => {
     setPendingLeadId(lead._id);
     setError("");
@@ -161,7 +269,7 @@ export default function CrmPage() {
         token: session.token,
         body: JSON.stringify({ status }),
       });
-      setLeads((current) => current.map((item) => item._id === lead._id ? result.lead : item));
+      setLeads((current) => current.map((item) => (item._id === lead._id ? result.lead : item)));
     } catch (requestError) {
       handleError(requestError);
     } finally {
@@ -175,6 +283,10 @@ export default function CrmPage() {
     try {
       await apiRequest(`leads/${lead._id}`, { method: "DELETE", token: session.token });
       setLeads((current) => current.filter((item) => item._id !== lead._id));
+      if (editingLead?._id === lead._id) {
+        setEditingLead(null);
+        setEditForm(null);
+      }
     } catch (requestError) {
       handleError(requestError);
     } finally {
@@ -185,9 +297,18 @@ export default function CrmPage() {
   return (
     <>
       <header className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div><p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">Revenue operations</p><h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Sales pipeline</h1><p className="mt-2 text-sm text-slate-500">Manage saved leads and their current stage.</p></div>
-        <button className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:self-auto" onClick={() => setFormOpen((open) => !open)} type="button">
-          {formOpen ? <X aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />}{formOpen ? "Close" : "Add lead"}
+        <div>
+          <p className="mb-2 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">Revenue operations</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Sales pipeline</h1>
+          <p className="mt-2 text-sm text-slate-500">Manage saved leads, domain lifecycles, and their current stages.</p>
+        </div>
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:self-auto"
+          onClick={() => setFormOpen((open) => !open)}
+          type="button"
+        >
+          {formOpen ? <X aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />}
+          {formOpen ? "Close" : "Add lead"}
         </button>
       </header>
 
@@ -203,14 +324,18 @@ export default function CrmPage() {
             <label className="text-xs font-medium text-slate-700">Phone<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, phone: event.target.value })} value={form.phone} /></label>
             <label className="text-xs font-medium text-slate-700">Website URL<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, website: event.target.value })} placeholder="https://example.com" value={form.website || ""} /></label>
             <label className="text-xs font-medium text-slate-700">Domain name<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, domainName: event.target.value })} placeholder="example.com" value={form.domainName || ""} /></label>
+            <label className="text-xs font-medium text-slate-700">Domain start date<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, domainStartDate: event.target.value })} type="date" value={form.domainStartDate || ""} /></label>
+            <label className="text-xs font-medium text-slate-700">Domain end date<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, domainEndDate: event.target.value })} type="date" value={form.domainEndDate || ""} /></label>
             <label className="text-xs font-medium text-slate-700">Website name<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, websiteName: event.target.value })} value={form.websiteName || ""} /></label>
             <label className="text-xs font-medium text-slate-700">Tech stack<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, techStack: event.target.value })} placeholder="e.g. Next.js, MongoDB" value={form.techStack || ""} /></label>
             <label className="text-xs font-medium text-slate-700">Website project start date<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, websiteProjectStartDate: event.target.value })} type="date" value={form.websiteProjectStartDate || ""} /></label>
             <label className="text-xs font-medium text-slate-700">Website project end date<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, websiteProjectEndDate: event.target.value })} type="date" value={form.websiteProjectEndDate || ""} /></label>
-            <label className="text-xs font-medium text-slate-700">Deal value<input className={`${fieldClassName} mt-1.5`} min="0" onChange={(event) => setForm({ ...form, dealValue: event.target.value })} type="number" value={form.dealValue} /></label>
-            <label className="text-xs font-medium text-slate-700 sm:col-span-2 lg:col-span-1">Notes<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, notes: event.target.value })} value={form.notes} /></label>
+            <label className="text-xs font-medium text-slate-700">Deal value ($)<input className={`${fieldClassName} mt-1.5`} min="0" onChange={(event) => setForm({ ...form, dealValue: event.target.value })} type="number" value={form.dealValue} /></label>
+            <label className="text-xs font-medium text-slate-700 sm:col-span-2 lg:col-span-2">Notes<input className={`${fieldClassName} mt-1.5`} onChange={(event) => setForm({ ...form, notes: event.target.value })} value={form.notes} /></label>
           </div>
-          <button className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60" disabled={formPending} type="submit">{formPending ? "Saving…" : "Save lead"}</button>
+          <button className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60" disabled={formPending} type="submit">
+            {formPending ? "Saving…" : "Save lead"}
+          </button>
         </form>
       )}
 
@@ -219,10 +344,20 @@ export default function CrmPage() {
           { label: "Open pipeline", value: loading ? "—" : CURRENCY_FORMAT.format(totalValue), detail: "Across open stages" },
           { label: "Open opportunities", value: loading ? "—" : String(openLeads.length), detail: "Not yet closed" },
           { label: "Closed value", value: loading ? "—" : CURRENCY_FORMAT.format(closedValue), detail: "From saved closed leads" },
-        ].map((item) => <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/40" key={item.label}><p className="text-xs font-medium text-slate-500">{item.label}</p><div className="mt-2 flex items-baseline justify-between gap-2"><p className="text-xl font-semibold tracking-tight text-slate-950">{item.value}</p><p className="text-[11px] text-slate-400">{item.detail}</p></div></div>)}
+        ].map((item) => (
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/40" key={item.label}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <p className="text-xl font-semibold tracking-tight text-slate-950">{item.value}</p>
+              <p className="text-[11px] text-slate-400">{item.detail}</p>
+            </div>
+          </div>
+        ))}
       </section>
 
-      {loading ? <p className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Loading saved leads…</p> : leads.length === 0 ? (
+      {loading ? (
+        <p className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Loading saved leads…</p>
+      ) : leads.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
           <h2 className="text-sm font-semibold text-slate-800">No leads yet</h2>
           <p className="mt-1 text-sm text-slate-500">Add a lead to see it in the pipeline.</p>
@@ -251,21 +386,31 @@ export default function CrmPage() {
                 </div>
               </div>
               <div className="min-h-36 space-y-3 bg-slate-50/70 p-2.5">
-                {stage.leads.length ? stage.leads.map((lead) => (
-                  <div key={lead._id}>
-                    <LeadCard lead={lead} onDelete={deleteLead} onStatusChange={updateLeadStatus} pending={pendingLeadId === lead._id} />
-                    {(lead.website || lead.domainName || lead.websiteName || lead.techStack || lead.websiteProjectStartDate || lead.websiteProjectEndDate) && (
-                      <div className="mt-2 space-y-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-xs shadow-sm shadow-slate-200/30">
-                        {lead.website && <p className="truncate"><span className="font-medium text-slate-500">Website: </span>{lead.website}</p>}
-                        {lead.domainName && <p className="truncate"><span className="font-medium text-slate-500">Domain: </span>{lead.domainName}</p>}
-                        {lead.websiteName && <p className="truncate"><span className="font-medium text-slate-500">Website name: </span>{lead.websiteName}</p>}
-                        {lead.techStack && <p className="truncate"><span className="font-medium text-slate-500">Tech stack: </span>{lead.techStack}</p>}
-                        {lead.websiteProjectStartDate && <p><span className="font-medium text-slate-500">Project starts: </span>{String(lead.websiteProjectStartDate).slice(0, 10)}</p>}
-                        {lead.websiteProjectEndDate && <p><span className="font-medium text-slate-500">Project ends: </span>{String(lead.websiteProjectEndDate).slice(0, 10)}</p>}
-                      </div>
-                    )}
-                  </div>
-                )) : (
+                {stage.leads.length ? (
+                  stage.leads.map((lead) => (
+                    <div key={lead._id}>
+                      <LeadCard
+                        lead={lead}
+                        onDelete={deleteLead}
+                        onEdit={beginEditLead}
+                        onStatusChange={updateLeadStatus}
+                        pending={pendingLeadId === lead._id}
+                      />
+                      {(lead.website || lead.domainName || lead.domainStartDate || lead.domainEndDate || lead.websiteName || lead.techStack || lead.websiteProjectStartDate || lead.websiteProjectEndDate) && (
+                        <div className="mt-2 space-y-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-xs shadow-sm shadow-slate-200/30">
+                          {lead.website && <p className="truncate"><span className="font-medium text-slate-500">Website: </span>{lead.website}</p>}
+                          {lead.domainName && <p className="truncate"><span className="font-medium text-slate-500">Domain: </span>{lead.domainName}</p>}
+                          {lead.domainStartDate && <p><span className="font-medium text-indigo-600">Domain starts: </span>{formatDateValue(lead.domainStartDate)}</p>}
+                          {lead.domainEndDate && <p><span className="font-medium text-indigo-600">Domain ends: </span>{formatDateValue(lead.domainEndDate)}</p>}
+                          {lead.websiteName && <p className="truncate"><span className="font-medium text-slate-500">Website name: </span>{lead.websiteName}</p>}
+                          {lead.techStack && <p className="truncate"><span className="font-medium text-slate-500">Tech stack: </span>{lead.techStack}</p>}
+                          {lead.websiteProjectStartDate && <p><span className="font-medium text-slate-500">Project starts: </span>{formatDateValue(lead.websiteProjectStartDate)}</p>}
+                          {lead.websiteProjectEndDate && <p><span className="font-medium text-slate-500">Project ends: </span>{formatDateValue(lead.websiteProjectEndDate)}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
                   <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/80 px-3 py-5 text-center">
                     <span className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full ${stage.tint}`}>
                       <span className={`h-2 w-2 rounded-full ${stage.color}`} />
@@ -278,6 +423,77 @@ export default function CrmPage() {
             </div>
           ))}
         </section>
+      )}
+
+      {/* Edit Lead Modal */}
+      {editingLead && editForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditingLead(null);
+              setEditForm(null);
+            }
+          }}
+        >
+          <section aria-labelledby="edit-lead-title" aria-modal="true" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-7" role="dialog">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900" id="edit-lead-title">Edit Lead Details</h2>
+                <p className="mt-1 text-xs text-slate-500">Update client, domain cycle dates, and deal info.</p>
+              </div>
+              <button
+                aria-label="Close edit lead form"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                onClick={() => {
+                  setEditingLead(null);
+                  setEditForm(null);
+                }}
+                type="button"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
+            <form className="space-y-4" onSubmit={saveEditLead}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-medium text-slate-700">Client name<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })} required value={editForm.clientName} /></label>
+                <label className="text-xs font-medium text-slate-700">Company<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} value={editForm.companyName} /></label>
+                <label className="text-xs font-medium text-slate-700">Email<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} type="email" value={editForm.email} /></label>
+                <label className="text-xs font-medium text-slate-700">Phone<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} value={editForm.phone} /></label>
+                <label className="text-xs font-medium text-slate-700">Website URL<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} value={editForm.website} /></label>
+                <label className="text-xs font-medium text-slate-700">Domain name<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, domainName: e.target.value })} value={editForm.domainName} /></label>
+                <label className="text-xs font-medium text-indigo-700">Domain start date<input className={`${fieldClassName} mt-1.5 border-indigo-200 focus:border-indigo-500`} onChange={(e) => setEditForm({ ...editForm, domainStartDate: e.target.value })} type="date" value={editForm.domainStartDate} /></label>
+                <label className="text-xs font-medium text-indigo-700">Domain end date<input className={`${fieldClassName} mt-1.5 border-indigo-200 focus:border-indigo-500`} onChange={(e) => setEditForm({ ...editForm, domainEndDate: e.target.value })} type="date" value={editForm.domainEndDate} /></label>
+                <label className="text-xs font-medium text-slate-700">Website name<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, websiteName: e.target.value })} value={editForm.websiteName} /></label>
+                <label className="text-xs font-medium text-slate-700">Tech stack<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, techStack: e.target.value })} value={editForm.techStack} /></label>
+                <label className="text-xs font-medium text-slate-700">Website project start date<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, websiteProjectStartDate: e.target.value })} type="date" value={editForm.websiteProjectStartDate} /></label>
+                <label className="text-xs font-medium text-slate-700">Website project end date<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, websiteProjectEndDate: e.target.value })} type="date" value={editForm.websiteProjectEndDate} /></label>
+                <label className="text-xs font-medium text-slate-700">Deal value ($)<input className={`${fieldClassName} mt-1.5`} min="0" onChange={(e) => setEditForm({ ...editForm, dealValue: e.target.value })} type="number" value={editForm.dealValue} /></label>
+                <label className="text-xs font-medium text-slate-700">Stage<select className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} value={editForm.status}>{STAGES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
+                <label className="text-xs font-medium text-slate-700 sm:col-span-2">Notes<input className={`${fieldClassName} mt-1.5`} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} value={editForm.notes} /></label>
+              </div>
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  onClick={() => {
+                    setEditingLead(null);
+                    setEditForm(null);
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  disabled={editPending}
+                  type="submit"
+                >
+                  {editPending ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </>
   );

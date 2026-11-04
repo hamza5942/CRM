@@ -77,7 +77,7 @@ function NavIcon({ name }) {
   );
 }
 
-function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout }) {
+function SidebarContents({ pathname, closeMenu, role, email, fullName, designation, onLogout }) {
   const employeeView = role === "employee";
   const realtimeStatus = useRealtimeStatus();
   const [installed, setInstalled] = useState(true);
@@ -218,7 +218,11 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout 
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold text-slate-100">{fullName}</p>
-            <p className="truncate text-[11px] text-slate-400">{email}</p>
+            {designation ? (
+              <p className="truncate text-[11px] font-medium text-indigo-300">{designation}</p>
+            ) : (
+              <p className="truncate text-[11px] text-slate-400">{email}</p>
+            )}
           </div>
           <a
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
@@ -243,7 +247,7 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, onLogout 
   );
 }
 
-export default function Sidebar({ role, email, fullName, onLogout }) {
+export default function Sidebar({ role, email, fullName, designation, onLogout }) {
   const pathname = usePathname();
   const employeeView = role === "employee";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -274,6 +278,7 @@ export default function Sidebar({ role, email, fullName, onLogout }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 bg-[#031d30] md:block">
         <SidebarContents
           closeMenu={closeMenu}
+          designation={designation}
           email={email}
           fullName={fullName}
           onLogout={onLogout}
@@ -301,6 +306,7 @@ export default function Sidebar({ role, email, fullName, onLogout }) {
       >
         <SidebarContents
           closeMenu={closeMenu}
+          designation={designation}
           email={email}
           fullName={fullName}
           onLogout={onLogout}

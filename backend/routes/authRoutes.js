@@ -16,6 +16,7 @@ function serializeEmployee(user) {
     fullName: user.fullName,
     email: user.email,
     role: user.role,
+    designation: user.designation || '',
     isActive: user.isActive !== false,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -51,6 +52,7 @@ router.post('/login', async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      designation: user.designation || '',
     },
   });
 });
@@ -60,14 +62,14 @@ router.get('/users', authMiddleware, isAdmin, async (req, res) => {
   if (req.query.includeInactive !== 'true') filter.isActive = { $ne: false };
 
   const users = await User.find(filter)
-    .select('_id fullName email role isActive createdAt updatedAt')
+    .select('_id fullName email role designation isActive createdAt updatedAt')
     .sort({ fullName: 1 })
     .lean();
   return res.json({ users: users.map(serializeEmployee) });
 });
 
 router.post('/register', authMiddleware, isAdmin, async (req, res) => {
-  const { fullName, email, password, role = 'employee' } = req.body || {};
+  const { fullName, email, password, role = 'employee', designation = '' } = req.body || {};
   if (
     typeof fullName !== 'string' ||
     !fullName.trim() ||
@@ -94,6 +96,7 @@ router.post('/register', authMiddleware, isAdmin, async (req, res) => {
       email: normalizedEmail,
       password: await bcrypt.hash(password, 12),
       role,
+      designation: typeof designation === 'string' ? designation.trim() : '',
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -106,6 +109,36 @@ router.post('/register', authMiddleware, isAdmin, async (req, res) => {
   return res.status(201).json({
     user: serializeEmployee(user),
   });
+});
+
+router.patch('/profile/me', authMiddleware, async (req, res) => {
+  const body = req.body || {};
+  const updates = {};
+  if (Object.prototype.hasOwnProperty.call(body, 'fullName')) {
+    if (typeof body.fullName !== 'string' || !body.fullName.trim()) {
+      return res.status(400).json({ error: 'A non-empty full name is required.' });
+    }
+    updates.fullName = body.fullName.trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'designation')) {
+    if (typeof body.designation !== 'string') {
+      return res.status(400).json({ error: 'Designation must be a string.' });
+    }
+    updates.designation = body.designation.trim();
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'Provide a name or designation to update.' });
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user.id,
+    { $set: updates },
+    { new: true, runValidators: true }
+  ).select('_id fullName email role designation isActive createdAt updatedAt');
+  if (!user) return res.status(404).json({ error: 'User account not found.' });
+
+  publishWorkspaceChange(req, 'employees');
+  return res.json({ user: serializeEmployee(user) });
 });
 
 router.patch('/users/:id', authMiddleware, isAdmin, async (req, res) => {
@@ -126,6 +159,12 @@ router.patch('/users/:id', authMiddleware, isAdmin, async (req, res) => {
       return res.status(400).json({ error: 'A valid email address is required.' });
     }
     updates.email = body.email.trim().toLowerCase();
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'designation')) {
+    if (typeof body.designation !== 'string') {
+      return res.status(400).json({ error: 'Designation must be a string.' });
+    }
+    updates.designation = body.designation.trim();
   }
   if (Object.prototype.hasOwnProperty.call(body, 'password')) {
     if (typeof body.password !== 'string' || body.password.length < 8) {
@@ -148,7 +187,7 @@ router.patch('/users/:id', authMiddleware, isAdmin, async (req, res) => {
       { _id: req.params.id, role: 'employee' },
       { $set: updates },
       { new: true, runValidators: true }
-    ).select('_id fullName email role isActive createdAt updatedAt');
+    ).select('_id fullName email role designation isActive createdAt updatedAt');
     if (!user) return res.status(404).json({ error: 'Employee account not found.' });
     publishWorkspaceChange(req, 'employees');
     return res.json({ user: serializeEmployee(user) });
@@ -169,7 +208,7 @@ router.delete('/users/:id', authMiddleware, isAdmin, async (req, res) => {
     { _id: req.params.id, role: 'employee' },
     { $set: { isActive: false } },
     { new: true }
-  ).select('_id fullName email role isActive');
+  ).select('_id fullName email role designation isActive');
   if (!user) return res.status(404).json({ error: 'Employee account not found.' });
 
   publishWorkspaceChange(req, 'employees');
