@@ -1,4 +1,22 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/$/, "");
+const DEFAULT_PROD_API = "https://crm-backend-sepia-mu.vercel.app";
+
+function resolveApiBaseUrl() {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
+  }
+  // When running in browser on a production domain or Vercel preview (not localhost)
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
+  ) {
+    return DEFAULT_PROD_API;
+  }
+  return process.env.NODE_ENV === "development" ? "http://localhost:5000" : DEFAULT_PROD_API;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -10,8 +28,11 @@ export class ApiError extends Error {
 
 export async function apiRequest(path, { token, ...options } = {}) {
   let response;
+  const cleanPath = String(path).replace(/^\/+/, "");
+  const targetUrl = `${API_BASE_URL}/api/${cleanPath}`;
+
   try {
-    response = await fetch(`${API_BASE_URL}/api/${path}`, {
+    response = await fetch(targetUrl, {
       ...options,
       headers: {
         ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -19,8 +40,11 @@ export async function apiRequest(path, { token, ...options } = {}) {
         ...options.headers,
       },
     });
-  } catch {
-    throw new Error("Could not reach the backend. Make sure the API is running and its URL is configured.");
+  } catch (err) {
+    console.error(`Failed to reach API at ${targetUrl}:`, err);
+    throw new Error(
+      `Could not reach the backend at ${API_BASE_URL}. Please check your internet connection or backend status.`
+    );
   }
 
   let data;

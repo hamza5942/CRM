@@ -11,6 +11,8 @@ function isAllowedOrigin(origin, allowedOrigins = []) {
   if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
   // Allow Vercel preview and production deployments
   if (/^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin)) return true;
+  // Allow codexsolutions.pro and any subdomains (*.codexsolutions.pro)
+  if (/^https?:\/\/([a-zA-Z0-9_-]+\.)?codexsolutions\.pro$/.test(origin)) return true;
   return false;
 }
 
