@@ -534,15 +534,24 @@ async function logout() {
   return getPublicState();
 }
 
+let isCleanedUp = false;
+
 async function quitApplication() {
   if (isQuitting) return;
   isQuitting = true;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (session && tracking) {
+  if (syncTimer) clearInterval(syncTimer);
+  if (!isCleanedUp && session && tracking) {
+    isCleanedUp = true;
     try {
-      await sendHeartbeat('offline');
+      await Promise.race([
+        authenticatedRequest({ method: 'post', url: '/attendance/clock-out' }),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+      tracking = false;
+      saveSession();
     } catch (error) {
-      console.error('Unable to send final offline heartbeat:', error);
+      console.error('Unable to auto clock out on quit:', error.message);
     }
   }
   app.quit();
@@ -596,7 +605,22 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => {
     forcedStatus = null;
     publishState();
+    void syncAttendanceStatus();
     void sendHeartbeat();
+  });
+  powerMonitor.on('shutdown', async () => {
+    if (session && tracking) {
+      try {
+        await Promise.race([
+          authenticatedRequest({ method: 'post', url: '/attendance/clock-out' }),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+        tracking = false;
+        saveSession();
+      } catch (err) {
+        console.error('Unable to auto clock out on shutdown:', err.message);
+      }
+    }
   });
 
   createWindow(!process.argv.includes('--hidden'));
@@ -609,8 +633,26 @@ app.on('open-url', (event, url) => {
 });
 
 app.on('activate', createWindow);
-app.on('before-quit', () => {
-  isQuitting = true;
+app.on('before-quit', async (event) => {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (syncTimer) clearInterval(syncTimer);
+  if (!isCleanedUp && session && tracking) {
+    event.preventDefault();
+    isQuitting = true;
+    isCleanedUp = true;
+    try {
+      await Promise.race([
+        authenticatedRequest({ method: 'post', url: '/attendance/clock-out' }),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+      tracking = false;
+      saveSession();
+    } catch (err) {
+      console.error('Clock out before-quit error:', err.message);
+    } finally {
+      app.quit();
+    }
+  } else {
+    isQuitting = true;
+  }
 });

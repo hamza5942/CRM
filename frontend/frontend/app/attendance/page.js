@@ -237,7 +237,20 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-slate-600">{formatTime(employee.checkIn)}</td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600">{formatTime(employee.checkOut)}</td>
+                    <td className="px-4 py-3.5 text-xs text-slate-600">
+                      {employee.checkOut ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatTime(employee.checkOut)}
+                          {employee.autoClockedOut && (
+                            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 border border-amber-200" title="Auto clocked out when PC turned off or went idle">
+                              Auto
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-xs font-medium text-slate-700">{formatDuration(employee.activeMinutes)}</td>
                     <td className="px-4 py-3.5 text-xs text-slate-600">{formatDuration(employee.idleMinutes)}</td>
                   </tr>
@@ -543,7 +556,18 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
                     </td>
                     <td className="px-4 py-3.5 text-xs text-slate-700 font-medium">{formatTime(record.checkIn)}</td>
                     <td className="px-4 py-3.5 text-xs text-slate-600">
-                      {record.checkOut ? formatTime(record.checkOut) : <span className="text-indigo-600 font-medium">In Progress</span>}
+                      {record.checkOut ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatTime(record.checkOut)}
+                          {record.autoClockedOut && (
+                            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 border border-amber-200" title="Auto clocked out when PC turned off or went idle">
+                              Auto
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-indigo-600 font-medium">In Progress</span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-xs font-semibold text-emerald-700">{formatDuration(record.activeMinutes)}</td>
                     <td className="px-4 py-3.5 text-xs text-slate-500">{formatDuration(record.idleMinutes)}</td>

@@ -9,6 +9,8 @@ const { publishWorkspaceChange } = require('../realtime');
 
 const router = express.Router();
 const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000;
+const AUTO_CLOCKOUT_MINUTES = Math.max(5, Number(process.env.AUTO_CLOCKOUT_MINUTES || 15));
+const AUTO_CLOCKOUT_MS = AUTO_CLOCKOUT_MINUTES * 60 * 1000;
 
 function utcDayStart(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -46,6 +48,108 @@ async function calculateAttendanceMinutes(userId, startTime, endTime = new Date(
   };
 }
 
+/**
+ * Reconciles open attendance sessions where the user's PC was shut off, slept,
+ * or lost network without a clean clock-out.
+ *
+ * If no heartbeat has arrived for >= AUTO_CLOCKOUT_MS (default 15 minutes)
+ * or if the session belongs to a previous day, this automatically clocks the user out.
+ * The checkout time is backdated to the exact second of their last known heartbeat,
+ * ensuring no phantom hours are accrued while the PC was off.
+ */
+async function autoCloseStaleAttendance(targetUserId = null, req = null) {
+  try {
+    const now = new Date();
+    const todayStart = utcDayStart(now);
+
+    const filter = {
+      checkIn: { $ne: null },
+      checkOut: null,
+    };
+    if (targetUserId) {
+      filter.userId = new mongoose.Types.ObjectId(targetUserId);
+    }
+
+    const openRecords = await Attendance.find(filter).lean();
+    if (!openRecords.length) return [];
+
+    const closedRecords = [];
+
+    for (const record of openRecords) {
+      const latestHeartbeat = await Heartbeat.findOne({
+        userId: record.userId,
+        timestamp: { $gte: record.checkIn },
+      })
+        .sort({ timestamp: -1 })
+        .lean();
+
+      const lastActivityTime = latestHeartbeat?.timestamp
+        ? new Date(latestHeartbeat.timestamp)
+        : record.lastHeartbeatAt
+        ? new Date(record.lastHeartbeatAt)
+        : new Date(record.checkIn);
+
+      const msSinceActivity = now.getTime() - lastActivityTime.getTime();
+      const isPastDay = new Date(record.date).getTime() < todayStart.getTime();
+      const isStale = msSinceActivity >= AUTO_CLOCKOUT_MS;
+
+      if (isStale || isPastDay) {
+        const checkOut = new Date(Math.max(lastActivityTime.getTime(), new Date(record.checkIn).getTime()));
+        const summary = await calculateAttendanceMinutes(record.userId, record.checkIn, checkOut);
+
+        const updated = await Attendance.findOneAndUpdate(
+          { _id: record._id, checkOut: null },
+          {
+            $set: {
+              checkOut,
+              totalActiveMinutes: summary.totalActiveMinutes,
+              totalIdleMinutes: summary.totalIdleMinutes,
+              autoClockedOut: true,
+              autoClockedOutReason: isPastDay ? 'day_ended' : 'inactivity_timeout',
+            },
+          },
+          { new: true }
+        );
+
+        if (updated) {
+          await Heartbeat.create({
+            userId: record.userId,
+            status: 'offline',
+            source: 'system',
+            timestamp: checkOut,
+          });
+
+          try {
+            publishWorkspaceChange(req, 'attendance', {
+              action: 'clock-out',
+              userId: record.userId.toString(),
+              checkOut,
+              status: 'offline',
+              summary,
+              autoClockedOut: true,
+              reason: isPastDay ? 'day_ended' : 'inactivity_timeout',
+            });
+          } catch (_) {}
+
+          closedRecords.push(updated);
+        }
+      }
+    }
+
+    return closedRecords;
+  } catch (error) {
+    console.error('Error auto-closing stale attendance:', error.message);
+    return [];
+  }
+}
+
+// Background sweep for environments with long-lived processes (e.g. VPS, local dev, Docker)
+setInterval(() => {
+  autoCloseStaleAttendance().catch((err) => {
+    console.error('Background auto-clockout sweep failed:', err.message);
+  });
+}, 2 * 60 * 1000);
+
 router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
   const date = utcDayStart();
   const checkInTime = new Date();
@@ -61,6 +165,8 @@ router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
 
     // Previously clocked out today; resume the day's attendance
     attendance.checkOut = null;
+    attendance.autoClockedOut = false;
+    attendance.autoClockedOutReason = undefined;
     attendance.lastHeartbeatAt = checkInTime;
     attendance.lastHeartbeatSource = 'desktop';
     await attendance.save();
@@ -89,6 +195,7 @@ router.post('/clock-in', authMiddleware, isEmployee, async (req, res) => {
       checkIn: checkInTime,
       lastHeartbeatAt: checkInTime,
       lastHeartbeatSource: 'desktop',
+      autoClockedOut: false,
     });
 
     // Create an immediate active heartbeat so the status shows 'active' immediately
@@ -134,7 +241,14 @@ router.post('/clock-out', authMiddleware, isEmployee, async (req, res) => {
 
   const updated = await Attendance.findOneAndUpdate(
     { _id: attendance._id, checkOut: null },
-    { $set: { checkOut, ...summary } },
+    {
+      $set: {
+        checkOut,
+        ...summary,
+        autoClockedOut: false,
+        autoClockedOutReason: null,
+      },
+    },
     { new: true, runValidators: true }
   );
   if (!updated) {
@@ -231,6 +345,8 @@ router.post('/heartbeat', authMiddleware, isEmployee, async (req, res) => {
 });
 
 router.get('/today', authMiddleware, async (req, res) => {
+  await autoCloseStaleAttendance(req.user.id, req);
+
   const attendance = await Attendance.findOne({
     userId: req.user.id,
     date: utcDayStart(),
@@ -257,6 +373,8 @@ router.get('/history', authMiddleware, async (req, res) => {
   if (!mongoose.isValidObjectId(targetUserId)) {
     return res.status(400).json({ error: 'The specified user ID is invalid.' });
   }
+
+  await autoCloseStaleAttendance(targetUserId, req);
 
   const filter = { userId: new mongoose.Types.ObjectId(targetUserId) };
 
@@ -318,6 +436,8 @@ router.get('/history', authMiddleware, async (req, res) => {
         idleMinutes,
         totalMinutes: activeMinutes + idleMinutes,
         status,
+        autoClockedOut: Boolean(record.autoClockedOut),
+        autoClockedOutReason: record.autoClockedOutReason || null,
       };
     })
   );
@@ -363,6 +483,12 @@ router.get('/daily', authMiddleware, async (req, res) => {
     }
   }
 
+  if (req.user.role === 'employee') {
+    await autoCloseStaleAttendance(req.user.id, req);
+  } else {
+    await autoCloseStaleAttendance(null, req);
+  }
+
   const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
 
   // When called by an employee, return ONLY their own record
@@ -402,6 +528,7 @@ router.get('/daily', authMiddleware, async (req, res) => {
       activeMinutes,
       idleMinutes,
       lastHeartbeatAt: latestHeartbeat?.timestamp || null,
+      autoClockedOut: Boolean(attendanceRecord?.autoClockedOut),
     };
 
     return res.json({ date, employees: [record], total: 1 });
@@ -416,7 +543,7 @@ router.get('/daily', authMiddleware, async (req, res) => {
 
   const [attendanceRecords, heartbeatStats] = await Promise.all([
     Attendance.find({ userId: { $in: employeeIds }, date })
-      .select('userId checkIn checkOut totalActiveMinutes totalIdleMinutes')
+      .select('userId checkIn checkOut totalActiveMinutes totalIdleMinutes autoClockedOut')
       .lean(),
     employeeIds.length
       ? Heartbeat.aggregate([
@@ -467,6 +594,7 @@ router.get('/daily', authMiddleware, async (req, res) => {
         ? attendance.totalIdleMinutes
         : heartbeat?.idleSamples || 0,
       lastHeartbeatAt: heartbeat?.timestamp || null,
+      autoClockedOut: Boolean(attendance?.autoClockedOut),
     };
   });
 
@@ -479,6 +607,12 @@ router.get('/daily', authMiddleware, async (req, res) => {
  * - Employee: lists only their own live status.
  */
 router.get('/live', authMiddleware, async (req, res) => {
+  if (req.user.role === 'employee') {
+    await autoCloseStaleAttendance(req.user.id, req);
+  } else {
+    await autoCloseStaleAttendance(null, req);
+  }
+
   const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
 
   if (req.user.role === 'employee') {

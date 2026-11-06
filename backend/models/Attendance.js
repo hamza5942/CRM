@@ -10,6 +10,8 @@ const attendanceSchema = new mongoose.Schema(
     totalIdleMinutes: { type: Number, default: 0, min: 0 },
     lastHeartbeatAt: { type: Date },
     lastHeartbeatSource: { type: String, enum: ['desktop', 'web'], default: 'desktop' },
+    autoClockedOut: { type: Boolean, default: false },
+    autoClockedOutReason: { type: String, trim: true },
   },
   { timestamps: true }
 );
