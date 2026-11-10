@@ -37,14 +37,54 @@ const STATUS_STYLES = {
 };
 
 const LEAVE_TYPES = [
-  { value: "sick", label: "Sick Leave", icon: "🤒", color: "text-rose-700 bg-rose-50 border-rose-200" },
-  { value: "casual", label: "Casual Leave", icon: "🌴", color: "text-sky-700 bg-sky-50 border-sky-200" },
-  { value: "annual", label: "Annual Leave", icon: "✈️", color: "text-purple-700 bg-purple-50 border-purple-200" },
-  { value: "paternity", label: "Paternity Leave", icon: "👶", color: "text-blue-700 bg-blue-50 border-blue-200" },
-  { value: "maternity", label: "Maternity Leave", icon: "🤱", color: "text-pink-700 bg-pink-50 border-pink-200" },
-  { value: "bereavement", label: "Bereavement Leave", icon: "🕊️", color: "text-slate-700 bg-slate-100 border-slate-300" },
-  { value: "unpaid", label: "Unpaid Leave (LWP)", icon: "💼", color: "text-amber-700 bg-amber-50 border-amber-200" },
-  { value: "other", label: "Other", icon: "📝", color: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+  {
+    value: "sick",
+    label: "Sick Leave",
+    icon: "🤒",
+    color: "text-rose-700 bg-rose-50 border-rose-200",
+  },
+  {
+    value: "casual",
+    label: "Casual Leave",
+    icon: "🌴",
+    color: "text-sky-700 bg-sky-50 border-sky-200",
+  },
+  {
+    value: "annual",
+    label: "Annual Leave",
+    icon: "✈️",
+    color: "text-purple-700 bg-purple-50 border-purple-200",
+  },
+  {
+    value: "paternity",
+    label: "Paternity Leave",
+    icon: "👶",
+    color: "text-blue-700 bg-blue-50 border-blue-200",
+  },
+  {
+    value: "maternity",
+    label: "Maternity Leave",
+    icon: "🤱",
+    color: "text-pink-700 bg-pink-50 border-pink-200",
+  },
+  {
+    value: "bereavement",
+    label: "Bereavement Leave",
+    icon: "🕊️",
+    color: "text-slate-700 bg-slate-100 border-slate-300",
+  },
+  {
+    value: "unpaid",
+    label: "Unpaid Leave (LWP)",
+    icon: "💼",
+    color: "text-amber-700 bg-amber-50 border-amber-200",
+  },
+  {
+    value: "other",
+    label: "Other",
+    icon: "📝",
+    color: "text-indigo-700 bg-indigo-50 border-indigo-200",
+  },
 ];
 
 function getLeaveTypeMeta(type) {
@@ -138,7 +178,8 @@ function RealtimeBadge({ status }) {
  */
 function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
   const todayYMD = getLocalTodayYMD();
-  const validInitial = initialDate && initialDate >= todayYMD ? initialDate : todayYMD;
+  const validInitial =
+    initialDate && initialDate >= todayYMD ? initialDate : todayYMD;
 
   const [leaveType, setLeaveType] = useState("sick");
   const [fromDate, setFromDate] = useState(validInitial);
@@ -162,7 +203,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
     setModalError("");
 
     if (fromDate < todayYMD) {
-      setModalError("Cannot apply for leave on past dates. Please select today or a future date.");
+      setModalError(
+        "Cannot apply for leave on past dates. Please select today or a future date.",
+      );
       return;
     }
     if (toDate < fromDate) {
@@ -170,7 +213,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
       return;
     }
     if (!reason.trim() || reason.trim().length < 3) {
-      setModalError("Please provide a reason for your leave request (at least 3 characters).");
+      setModalError(
+        "Please provide a reason for your leave request (at least 3 characters).",
+      );
       return;
     }
 
@@ -216,7 +261,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
         },
       });
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Failed to submit leave request.");
+      setModalError(
+        err instanceof Error ? err.message : "Failed to submit leave request.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -261,7 +308,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700">Leave Type</label>
+            <label className="block text-xs font-semibold text-slate-700">
+              Leave Type
+            </label>
             <select
               className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
               onChange={(e) => setLeaveType(e.target.value)}
@@ -277,7 +326,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700">From Date</label>
+              <label className="block text-xs font-semibold text-slate-700">
+                From Date
+              </label>
               <input
                 className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                 min={todayYMD}
@@ -293,7 +344,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700">To Date</label>
+              <label className="block text-xs font-semibold text-slate-700">
+                To Date
+              </label>
               <input
                 className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                 min={fromDate || todayYMD}
@@ -315,7 +368,9 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700">Reason for Leave</label>
+            <label className="block text-xs font-semibold text-slate-700">
+              Reason for Leave
+            </label>
             <textarea
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
               onChange={(e) => setReason(e.target.value)}
@@ -353,14 +408,20 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
  * Clean month grid, color-coded leaves (Yellow Pending, Green Approved, Red Rejected),
  * past-date restriction, and bottom pagination controls.
  */
-function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate }) {
+function InteractiveAttendanceCalendar({
+  leaves = [],
+  history = [],
+  onSelectDate,
+}) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const todayYMD = getLocalTodayYMD();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const monthName = new Intl.DateTimeFormat(undefined, { month: "long" }).format(currentDate);
+  const monthName = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+  }).format(currentDate);
 
   const prevMonth = (e) => {
     e?.preventDefault();
@@ -425,7 +486,8 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
             </button>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Click any current or future date to apply for leave. Past dates cannot be selected.
+            Click any current or future date to apply for leave. Past dates
+            cannot be selected.
           </p>
         </div>
 
@@ -463,7 +525,10 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
       <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 text-left bg-slate-50/30">
         {/* Leading Blank Cells */}
         {Array.from({ length: startOffset }).map((_, idx) => (
-          <div className="min-h-[100px] bg-slate-50/40 p-2" key={`blank-${idx}`} />
+          <div
+            className="min-h-[100px] bg-slate-50/40 p-2"
+            key={`blank-${idx}`}
+          />
         ))}
 
         {/* Month Day Cells */}
@@ -480,13 +545,17 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
 
           if (leave) {
             if (leave.status === "pending") {
-              cellBg = "bg-amber-50/50 hover:bg-amber-50/80 border-l-2 border-l-amber-400";
+              cellBg =
+                "bg-amber-50/50 hover:bg-amber-50/80 border-l-2 border-l-amber-400";
               badgeColor = "bg-amber-100/90 text-amber-900 border-amber-300";
             } else if (leave.status === "approved") {
-              cellBg = "bg-emerald-50/50 hover:bg-emerald-50/80 border-l-2 border-l-emerald-500";
-              badgeColor = "bg-emerald-100/90 text-emerald-900 border-emerald-300";
+              cellBg =
+                "bg-emerald-50/50 hover:bg-emerald-50/80 border-l-2 border-l-emerald-500";
+              badgeColor =
+                "bg-emerald-100/90 text-emerald-900 border-emerald-300";
             } else if (leave.status === "rejected") {
-              cellBg = "bg-rose-50/40 hover:bg-rose-50/70 border-l-2 border-l-rose-400";
+              cellBg =
+                "bg-rose-50/40 hover:bg-rose-50/70 border-l-2 border-l-rose-400";
               badgeColor = "bg-rose-100/90 text-rose-900 border-rose-300";
             }
           }
@@ -494,7 +563,9 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
           return (
             <div
               className={`group relative min-h-[100px] p-2.5 transition flex flex-col justify-between select-none ${cellBg} ${
-                canApply ? "cursor-pointer" : "cursor-not-allowed opacity-75 bg-slate-50/30"
+                canApply
+                  ? "cursor-pointer"
+                  : "cursor-not-allowed opacity-75 bg-slate-50/30"
               }`}
               key={dateStr}
               onClick={(e) => {
@@ -518,8 +589,8 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
                     isToday
                       ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200"
                       : isPast
-                      ? "text-slate-400 font-medium"
-                      : "text-slate-800 font-semibold"
+                        ? "text-slate-400 font-medium"
+                        : "text-slate-800 font-semibold"
                   }`}
                 >
                   {dayNumber}
@@ -542,10 +613,12 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
                       {leave.status === "pending"
                         ? "🟡 Pending"
                         : leave.status === "approved"
-                        ? "🟢 Approved"
-                        : "🔴 Rejected"}
+                          ? "🟢 Approved"
+                          : "🔴 Rejected"}
                     </span>
-                    <span className="truncate opacity-80">{leaveMeta?.label}</span>
+                    <span className="truncate opacity-80">
+                      {leaveMeta?.label}
+                    </span>
                   </span>
                 )}
 
@@ -597,7 +670,11 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
         </div>
 
         <p className="text-xs font-medium text-slate-500">
-          Showing <strong className="text-slate-800">{monthName} {year}</strong> · Click any future date to apply
+          Showing{" "}
+          <strong className="text-slate-800">
+            {monthName} {year}
+          </strong>{" "}
+          · Click any future date to apply
         </p>
       </div>
     </section>
@@ -647,7 +724,11 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         logout("Your sign-in session has expired. Please sign in again.");
       } else {
-        setError(requestError instanceof Error ? requestError.message : "Could not load data.");
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Could not load data.",
+        );
       }
     } finally {
       setLoading(false);
@@ -693,10 +774,13 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
     setError("");
     try {
       const wasClockedIn = isClockedIn;
-      await apiRequest(`attendance/${wasClockedIn ? "clock-out" : "clock-in"}`, {
-        method: "POST",
-        token: session.token,
-      });
+      await apiRequest(
+        `attendance/${wasClockedIn ? "clock-out" : "clock-in"}`,
+        {
+          method: "POST",
+          token: session.token,
+        },
+      );
       if (!wasClockedIn) {
         apiRequest("attendance/heartbeat", {
           method: "POST",
@@ -706,7 +790,9 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       }
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update clock status.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update clock status.",
+      );
     } finally {
       setClockPending(false);
     }
@@ -721,8 +807,8 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       leaveStatus === "approved"
         ? "This leave was already approved."
         : leaveStatus === "rejected"
-        ? "This leave was rejected."
-        : "This leave request is currently pending.";
+          ? "This leave was rejected."
+          : "This leave request is currently pending.";
 
     const confirmation = await Swal.fire({
       title: "Delete Leave Record?",
@@ -772,7 +858,10 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       Swal.fire({
         icon: "error",
         title: "Could Not Delete",
-        text: err instanceof Error ? err.message : "Failed to delete leave request.",
+        text:
+          err instanceof Error
+            ? err.message
+            : "Failed to delete leave request.",
         confirmButtonColor: "#4f46e5",
       });
     }
@@ -805,23 +894,31 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       value: loading
         ? "—"
         : todayRecord?.checkOut
-        ? "Clocked Out"
-        : todayRecord?.checkIn
-        ? `In Progress (${formatTime(todayRecord.checkIn)})`
-        : "Not Clocked In",
-      note: todayRecord?.checkIn ? `Started at ${formatTime(todayRecord.checkIn)}` : "No clock-in recorded today",
+          ? "Clocked Out"
+          : todayRecord?.checkIn
+            ? `In Progress (${formatTime(todayRecord.checkIn)})`
+            : "Not Clocked In",
+      note: todayRecord?.checkIn
+        ? `Started at ${formatTime(todayRecord.checkIn)}`
+        : "No clock-in recorded today",
       icon: CheckCircle2,
       color: todayRecord?.checkOut
         ? "text-blue-700"
         : todayRecord?.checkIn
-        ? "text-emerald-700"
-        : "text-slate-500",
+          ? "text-emerald-700"
+          : "text-slate-500",
     },
   ];
 
-  const pendingLeavesCount = leaves.filter((l) => l.status === "pending").length;
-  const approvedLeavesCount = leaves.filter((l) => l.status === "approved").length;
-  const rejectedLeavesCount = leaves.filter((l) => l.status === "rejected").length;
+  const pendingLeavesCount = leaves.filter(
+    (l) => l.status === "pending",
+  ).length;
+  const approvedLeavesCount = leaves.filter(
+    (l) => l.status === "approved",
+  ).length;
+  const rejectedLeavesCount = leaves.filter(
+    (l) => l.status === "rejected",
+  ).length;
 
   return (
     <>
@@ -829,11 +926,16 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="mb-1.5 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">
-            {session.designation ? `${session.designation} · Workspace` : "Employee Workspace"}
+            {session.designation
+              ? `${session.designation} · Workspace`
+              : "Employee Workspace"}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Attendance & Leaves</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+            Attendance & Leaves
+          </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-500">
-            Track daily work hours, apply for leaves on the calendar, and review approval status.
+            Track daily work hours, apply for leaves on the calendar, and review
+            approval status.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -851,13 +953,19 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
           </button>
           <button
             className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white shadow-sm transition focus:outline-none disabled:cursor-wait disabled:opacity-60 ${
-              isClockedIn ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"
+              isClockedIn
+                ? "bg-rose-600 hover:bg-rose-700"
+                : "bg-indigo-600 hover:bg-indigo-700"
             }`}
             disabled={clockPending || loading}
             onClick={toggleClock}
             type="button"
           >
-            {isClockedIn ? <LogOut aria-hidden="true" className="h-3.5 w-3.5" /> : <LogIn aria-hidden="true" className="h-3.5 w-3.5" />}
+            {isClockedIn ? (
+              <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : (
+              <LogIn aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
             {clockPending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
           </button>
           <Link
@@ -871,22 +979,37 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       </header>
 
       {error && (
-        <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+        <div
+          className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
       {/* KPI Stats Cards */}
-      <section aria-label="Attendance statistics" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        aria-label="Attendance statistics"
+        className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
         {cards.map((item) => {
           const Icon = item.icon;
           return (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm shadow-slate-200/40" key={item.label}>
+            <div
+              className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm shadow-slate-200/40"
+              key={item.label}
+            >
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-slate-500">{item.label}</p>
+                <p className="text-xs font-medium text-slate-500">
+                  {item.label}
+                </p>
                 <Icon aria-hidden="true" className="h-4 w-4 text-slate-400" />
               </div>
-              <p className={`mt-2.5 text-2xl font-bold tracking-tight ${item.color}`}>{item.value}</p>
+              <p
+                className={`mt-2.5 text-2xl font-bold tracking-tight ${item.color}`}
+              >
+                {item.value}
+              </p>
               <p className="mt-1 text-[11px] text-slate-400">{item.note}</p>
             </div>
           );
@@ -896,42 +1019,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       {/* THREE DEDICATED TABS: Attendance & Leave Calendar | My Leaves | Attendance Logs */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
         <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-          {/* Tab 1 */}
-          <button
-            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
-              activeTab === "calendar"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-            onClick={() => setActiveTab("calendar")}
-            type="button"
-          >
-            <Calendar className="h-4 w-4" />
-            Attendance & Leave Calendar
-          </button>
-
-          {/* Tab 2 */}
-          <button
-            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
-              activeTab === "leaves"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-            onClick={() => setActiveTab("leaves")}
-            type="button"
-          >
-            <CalendarDays className="h-4 w-4" />
-            My Leaves
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                pendingLeavesCount > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {leaves.length}
-            </span>
-          </button>
-
-          {/* Tab 3 */}
+            {/* Tab 1 */}
           <button
             className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
               activeTab === "logs"
@@ -947,6 +1035,45 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
               {history.length}
             </span>
           </button>
+
+          {/* Tab 2 */}
+          <button
+            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
+              activeTab === "calendar"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+            onClick={() => setActiveTab("calendar")}
+            type="button"
+          >
+            <Calendar className="h-4 w-4" />
+            Attendance & Leave Calendar
+          </button>
+
+          {/* Tab 3 */}
+          <button
+            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
+              activeTab === "leaves"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+            onClick={() => setActiveTab("leaves")}
+            type="button"
+          >
+            <CalendarDays className="h-4 w-4" />
+            My Leaves
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                pendingLeavesCount > 0
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {leaves.length}
+            </span>
+          </button>
+
+        
         </div>
 
         <button
@@ -961,7 +1088,169 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
           Apply for Leave
         </button>
       </div>
+      {/* TAB 3: ATTENDANCE LOGS */}
+      {activeTab === "logs" && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
+          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:px-6">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Daily Attendance History Log
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Tracked work records, check in/out times, and durations
+              </p>
+            </div>
+            <label className="relative block w-full sm:w-64">
+              <span className="sr-only">Search dates</span>
+              <Search
+                aria-hidden="true"
+                className="absolute top-2.5 left-3 h-4 w-4 text-slate-400"
+              />
+              <input
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white pr-3 pl-9 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search date or status..."
+                type="search"
+                value={search}
+              />
+            </label>
+          </div>
 
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-left">
+              <thead className="bg-slate-50/80">
+                <tr className="text-[10px] font-bold tracking-[0.12em] text-slate-500 uppercase">
+                  <th className="px-6 py-3.5">Date</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Clock In</th>
+                  <th className="px-4 py-3.5">Clock Out</th>
+                  <th className="px-4 py-3.5">Active Time</th>
+                  <th className="px-4 py-3.5">Idle Time</th>
+                  <th className="px-4 py-3.5">Total Tracked</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {!loading &&
+                  filteredHistory.map((record) => {
+                    const status =
+                      record.status ||
+                      (record.checkOut ? "completed" : "in_progress");
+                    const statusLabel =
+                      status === "completed"
+                        ? "Completed"
+                        : status === "active"
+                          ? "Active Now"
+                          : status === "idle"
+                            ? "Idle"
+                            : "In Progress";
+
+                    return (
+                      <tr
+                        className="transition hover:bg-slate-50/70"
+                        key={record._id}
+                      >
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <CalendarDays
+                              aria-hidden="true"
+                              className="h-4 w-4 text-slate-400"
+                            />
+                            <span className="text-xs font-semibold text-slate-800">
+                              {formatDate(record.date)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium before:h-1.5 before:w-1.5 before:rounded-full ${
+                              STATUS_STYLES[status] || STATUS_STYLES.in_progress
+                            }`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-700 font-medium">
+                          {formatTime(record.checkIn)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-600">
+                          {record.checkOut ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              {formatTime(record.checkOut)}
+                              {record.autoClockedOut && (
+                                <span
+                                  className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 border border-amber-200"
+                                  title="Auto clocked out when PC turned off or went idle"
+                                >
+                                  Auto
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-indigo-600 font-medium">
+                              In Progress
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-semibold text-emerald-700">
+                          {formatDuration(record.activeMinutes)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                          {formatDuration(record.idleMinutes)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs font-medium text-slate-800">
+                          {formatDuration(record.totalMinutes)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                {!loading && filteredHistory.length === 0 && (
+                  <tr>
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={7}
+                    >
+                      {history.length
+                        ? "No records match your search."
+                        : "You have not recorded any attendance yet."}
+                    </td>
+                  </tr>
+                )}
+
+                {loading && (
+                  <tr>
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={7}
+                    >
+                      Loading your attendance history…
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 sm:px-6">
+            <p className="text-[11px] text-slate-500">
+              {loading
+                ? "Loading logs…"
+                : `Showing ${filteredHistory.length} of ${history.length} logged working days`}
+            </p>
+            <button
+              className="h-8 rounded-lg border border-slate-200 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition"
+              disabled={loading}
+              onClick={() => {
+                setLoading(true);
+                setRefreshKey((key) => key + 1);
+              }}
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+        </section>
+      )}
       {/* TAB 1: ATTENDANCE & LEAVE CALENDAR */}
       {activeTab === "calendar" && (
         <div className="space-y-4">
@@ -979,7 +1268,8 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             <div className="flex items-center gap-2.5 text-indigo-900">
               <Calendar className="h-4 w-4 text-indigo-600 shrink-0" />
               <span>
-                Want to view or delete your applied leaves? Switch to the <strong>My Leaves</strong> tab.
+                Want to view or delete your applied leaves? Switch to the{" "}
+                <strong>My Leaves</strong> tab.
               </span>
             </div>
             <button
@@ -1006,8 +1296,16 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
               {[
                 { id: "all", label: "All Leaves", count: leaves.length },
                 { id: "pending", label: "Pending", count: pendingLeavesCount },
-                { id: "approved", label: "Approved", count: approvedLeavesCount },
-                { id: "rejected", label: "Rejected", count: rejectedLeavesCount },
+                {
+                  id: "approved",
+                  label: "Approved",
+                  count: approvedLeavesCount,
+                },
+                {
+                  id: "rejected",
+                  label: "Rejected",
+                  count: rejectedLeavesCount,
+                },
               ].map((f) => (
                 <button
                   className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
@@ -1051,7 +1349,8 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
                   const s = new Date(leave.fromDate);
                   const e = new Date(leave.toDate);
                   if (e >= s) {
-                    durationDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+                    durationDays =
+                      Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
                   }
                 }
 
@@ -1066,21 +1365,23 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
                       </span>
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900">{meta.label}</span>
+                          <span className="text-sm font-bold text-slate-900">
+                            {meta.label}
+                          </span>
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                               leave.status === "pending"
                                 ? "bg-amber-100 text-amber-900 border-amber-300"
                                 : leave.status === "approved"
-                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                                : "bg-rose-100 text-rose-900 border-rose-300"
+                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                  : "bg-rose-100 text-rose-900 border-rose-300"
                             }`}
                           >
                             {leave.status === "pending"
                               ? "🟡 Pending Review"
                               : leave.status === "approved"
-                              ? "🟢 Approved"
-                              : "🔴 Rejected"}
+                                ? "🟢 Approved"
+                                : "🔴 Rejected"}
                           </span>
                           <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                             {durationDays} {durationDays === 1 ? "day" : "days"}
@@ -1092,7 +1393,9 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
                         </p>
 
                         <p className="text-xs text-slate-600">
-                          <span className="text-slate-400 font-medium">Reason: </span>
+                          <span className="text-slate-400 font-medium">
+                            Reason:{" "}
+                          </span>
                           &ldquo;{leave.reason}&rdquo;
                         </p>
 
@@ -1112,7 +1415,9 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
                     <div className="self-end sm:self-center shrink-0">
                       <button
                         className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 px-3.5 py-2 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 hover:border-rose-300 transition"
-                        onClick={() => handleDeleteLeave(leave._id, meta.label, leave.status)}
+                        onClick={() =>
+                          handleDeleteLeave(leave._id, meta.label, leave.status)
+                        }
                         title="Delete this leave record"
                         type="button"
                       >
@@ -1128,10 +1433,13 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             <div className="p-12 text-center">
               <CalendarDays className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-800">
-                {leaveFilter === "all" ? "No leave requests found" : `No ${leaveFilter} leave requests`}
+                {leaveFilter === "all"
+                  ? "No leave requests found"
+                  : `No ${leaveFilter} leave requests`}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                You can apply for leave using the button below or by clicking a date on the calendar tab.
+                You can apply for leave using the button below or by clicking a
+                date on the calendar tab.
               </p>
               <button
                 className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
@@ -1146,139 +1454,6 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
               </button>
             </div>
           )}
-        </section>
-      )}
-
-      {/* TAB 3: ATTENDANCE LOGS */}
-      {activeTab === "logs" && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:px-6">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Daily Attendance History Log</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Tracked work records, check in/out times, and durations</p>
-            </div>
-            <label className="relative block w-full sm:w-64">
-              <span className="sr-only">Search dates</span>
-              <Search aria-hidden="true" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
-              <input
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white pr-3 pl-9 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search date or status..."
-                type="search"
-                value={search}
-              />
-            </label>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left">
-              <thead className="bg-slate-50/80">
-                <tr className="text-[10px] font-bold tracking-[0.12em] text-slate-500 uppercase">
-                  <th className="px-6 py-3.5">Date</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5">Clock In</th>
-                  <th className="px-4 py-3.5">Clock Out</th>
-                  <th className="px-4 py-3.5">Active Time</th>
-                  <th className="px-4 py-3.5">Idle Time</th>
-                  <th className="px-4 py-3.5">Total Tracked</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {!loading &&
-                  filteredHistory.map((record) => {
-                    const status = record.status || (record.checkOut ? "completed" : "in_progress");
-                    const statusLabel =
-                      status === "completed"
-                        ? "Completed"
-                        : status === "active"
-                        ? "Active Now"
-                        : status === "idle"
-                        ? "Idle"
-                        : "In Progress";
-
-                    return (
-                      <tr className="transition hover:bg-slate-50/70" key={record._id}>
-                        <td className="px-6 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <CalendarDays aria-hidden="true" className="h-4 w-4 text-slate-400" />
-                            <span className="text-xs font-semibold text-slate-800">{formatDate(record.date)}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium before:h-1.5 before:w-1.5 before:rounded-full ${
-                              STATUS_STYLES[status] || STATUS_STYLES.in_progress
-                            }`}
-                          >
-                            {statusLabel}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-700 font-medium">{formatTime(record.checkIn)}</td>
-                        <td className="px-4 py-3.5 text-xs text-slate-600">
-                          {record.checkOut ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              {formatTime(record.checkOut)}
-                              {record.autoClockedOut && (
-                                <span
-                                  className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 border border-amber-200"
-                                  title="Auto clocked out when PC turned off or went idle"
-                                >
-                                  Auto
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-indigo-600 font-medium">In Progress</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs font-semibold text-emerald-700">
-                          {formatDuration(record.activeMinutes)}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-500">{formatDuration(record.idleMinutes)}</td>
-                        <td className="px-4 py-3.5 text-xs font-medium text-slate-800">
-                          {formatDuration(record.totalMinutes)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                {!loading && filteredHistory.length === 0 && (
-                  <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={7}>
-                      {history.length ? "No records match your search." : "You have not recorded any attendance yet."}
-                    </td>
-                  </tr>
-                )}
-
-                {loading && (
-                  <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={7}>
-                      Loading your attendance history…
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 sm:px-6">
-            <p className="text-[11px] text-slate-500">
-              {loading
-                ? "Loading logs…"
-                : `Showing ${filteredHistory.length} of ${history.length} logged working days`}
-            </p>
-            <button
-              className="h-8 rounded-lg border border-slate-200 px-3 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition"
-              disabled={loading}
-              onClick={() => {
-                setLoading(true);
-                setRefreshKey((key) => key + 1);
-              }}
-              type="button"
-            >
-              Refresh
-            </button>
-          </div>
         </section>
       )}
 
@@ -1302,7 +1477,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
  * - Tab 2: "Leave Requests" (Approve or reject employee leave applications, with Pending badge)
  */
 function AdminAttendanceView({ session, logout, realtimeStatus }) {
-  const [activeTab, setActiveTab] = useState("attendance"); // "attendance" | "leaves"
+  const [activeTab, setActiveTab] = useState("logs"); 
 
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
@@ -1312,13 +1487,20 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [leaves, setLeaves] = useState([]);
-  const [leaveCounts, setLeaveCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [leaveCounts, setLeaveCounts] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0,
+  });
   const [leaveFilter, setLeaveFilter] = useState("all");
   const [actionPendingId, setActionPendingId] = useState("");
 
   const loadData = useCallback(async () => {
     try {
-      const query = selectedDate ? `?date=${encodeURIComponent(selectedDate)}` : "";
+      const query = selectedDate
+        ? `?date=${encodeURIComponent(selectedDate)}`
+        : "";
       const [attResult, leavesResult] = await Promise.all([
         apiRequest(`attendance/daily${query}`, { token: session.token }),
         apiRequest("leaves", { token: session.token }),
@@ -1333,7 +1515,11 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         logout("Your sign-in session has expired. Please sign in again.");
       } else {
-        setError(requestError instanceof Error ? requestError.message : "Could not load team data.");
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Could not load team data.",
+        );
       }
     } finally {
       setLoading(false);
@@ -1344,7 +1530,11 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
     void Promise.resolve().then(loadData);
   }, [loadData, refreshKey]);
 
-  useWorkspaceUpdates(session.token, ["attendance", "employees", "leaves"], loadData);
+  useWorkspaceUpdates(
+    session.token,
+    ["attendance", "employees", "leaves"],
+    loadData,
+  );
 
   const handleReviewLeave = async (leaveId, status) => {
     setActionPendingId(leaveId);
@@ -1415,9 +1605,11 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
   const filteredEmployees = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return employees;
-    return employees.filter(({ user }) => (
-      user?.fullName?.toLowerCase().includes(query) || user?.email?.toLowerCase().includes(query)
-    ));
+    return employees.filter(
+      ({ user }) =>
+        user?.fullName?.toLowerCase().includes(query) ||
+        user?.email?.toLowerCase().includes(query),
+    );
   }, [employees, search]);
 
   const filteredLeaves = useMemo(() => {
@@ -1425,15 +1617,41 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
     return leaves.filter((l) => l.status === leaveFilter);
   }, [leaves, leaveFilter]);
 
-  const checkedInCount = employees.filter((employee) => employee.clockedIn).length;
-  const activeCount = employees.filter((employee) => employee.status === "active").length;
-  const idleCount = employees.filter((employee) => employee.status === "idle").length;
+  const checkedInCount = employees.filter(
+    (employee) => employee.clockedIn,
+  ).length;
+  const activeCount = employees.filter(
+    (employee) => employee.status === "active",
+  ).length;
+  const idleCount = employees.filter(
+    (employee) => employee.status === "idle",
+  ).length;
 
   const summary = [
-    { label: "Employees", value: loading ? "—" : String(employees.length), note: "Registered accounts", color: "text-slate-900" },
-    { label: "Checked in", value: loading ? "—" : String(checkedInCount), note: "Attendance active today", color: "text-emerald-700" },
-    { label: "Currently active", value: loading ? "—" : String(activeCount), note: "Realtime heartbeats", color: "text-indigo-700" },
-    { label: "Pending leaves", value: loading ? "—" : String(leaveCounts.pending), note: "Awaiting your review", color: "text-amber-700" },
+    {
+      label: "Employees",
+      value: loading ? "—" : String(employees.length),
+      note: "Registered accounts",
+      color: "text-slate-900",
+    },
+    {
+      label: "Checked in",
+      value: loading ? "—" : String(checkedInCount),
+      note: "Attendance active today",
+      color: "text-emerald-700",
+    },
+    {
+      label: "Currently active",
+      value: loading ? "—" : String(activeCount),
+      note: "Realtime heartbeats",
+      color: "text-indigo-700",
+    },
+    {
+      label: "Pending leaves",
+      value: loading ? "—" : String(leaveCounts.pending),
+      note: "Awaiting your review",
+      color: "text-amber-700",
+    },
   ];
 
   return (
@@ -1441,8 +1659,12 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
       {/* Admin Header: Clean & uncluttered, no calendar */}
       <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="mb-1.5 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">People Operations</p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Team Attendance & Leaves</h1>
+          <p className="mb-1.5 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">
+            People Operations
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+            Team Attendance & Leaves
+          </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-500">
             Realtime employee attendance monitoring and leave request approvals.
           </p>
@@ -1453,17 +1675,30 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
       </header>
 
       {error && (
-        <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+        <div
+          className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
       {/* Admin KPI Stats */}
-      <section aria-label="Team metrics" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        aria-label="Team metrics"
+        className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
         {summary.map((item) => (
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm shadow-slate-200/40" key={item.label}>
+          <div
+            className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm shadow-slate-200/40"
+            key={item.label}
+          >
             <p className="text-xs font-medium text-slate-500">{item.label}</p>
-            <p className={`mt-2.5 text-2xl font-bold tracking-tight ${item.color}`}>{item.value}</p>
+            <p
+              className={`mt-2.5 text-2xl font-bold tracking-tight ${item.color}`}
+            >
+              {item.value}
+            </p>
             <p className="mt-1 text-[11px] text-slate-400">{item.note}</p>
           </div>
         ))}
@@ -1528,7 +1763,10 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
 
             <label className="relative block w-full sm:w-64">
               <span className="sr-only">Search employees</span>
-              <Search aria-hidden="true" className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
+              <Search
+                aria-hidden="true"
+                className="absolute top-2.5 left-3 h-4 w-4 text-slate-400"
+              />
               <input
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white pr-3 pl-9 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
                 onChange={(event) => setSearch(event.target.value)}
@@ -1556,7 +1794,10 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                   filteredEmployees.map((employee) => {
                     const status = employee.status || "offline";
                     return (
-                      <tr className="transition hover:bg-slate-50/70" key={employee.user._id}>
+                      <tr
+                        className="transition hover:bg-slate-50/70"
+                        key={employee.user._id}
+                      >
                         <td className="px-6 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
@@ -1571,14 +1812,18 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                             </div>
                             <div>
                               <span className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-slate-800">{employee.user?.fullName}</span>
+                                <span className="text-xs font-semibold text-slate-800">
+                                  {employee.user?.fullName}
+                                </span>
                                 {employee.user?.designation && (
                                   <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 border border-indigo-100/80">
                                     {employee.user.designation}
                                   </span>
                                 )}
                               </span>
-                              <span className="mt-0.5 block text-[10px] text-slate-400">{employee.user?.email}</span>
+                              <span className="mt-0.5 block text-[10px] text-slate-400">
+                                {employee.user?.email}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -1591,7 +1836,9 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                             {status}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-600">{formatTime(employee.checkIn)}</td>
+                        <td className="px-4 py-3.5 text-xs text-slate-600">
+                          {formatTime(employee.checkIn)}
+                        </td>
                         <td className="px-4 py-3.5 text-xs text-slate-600">
                           {employee.checkOut ? (
                             <span className="inline-flex items-center gap-1.5">
@@ -1612,20 +1859,30 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                         <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">
                           {formatDuration(employee.activeMinutes)}
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-500">{formatDuration(employee.idleMinutes)}</td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                          {formatDuration(employee.idleMinutes)}
+                        </td>
                       </tr>
                     );
                   })}
                 {!loading && filteredEmployees.length === 0 && (
                   <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={6}>
-                      {employees.length ? "No employees match your search." : "No employee records exist for this date."}
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={6}
+                    >
+                      {employees.length
+                        ? "No employees match your search."
+                        : "No employee records exist for this date."}
                     </td>
                   </tr>
                 )}
                 {loading && (
                   <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={6}>
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={6}
+                    >
                       Loading attendance…
                     </td>
                   </tr>
@@ -1663,8 +1920,16 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
               {[
                 { id: "all", label: "All Requests", count: leaveCounts.total },
                 { id: "pending", label: "Pending", count: leaveCounts.pending },
-                { id: "approved", label: "Approved", count: leaveCounts.approved },
-                { id: "rejected", label: "Rejected", count: leaveCounts.rejected },
+                {
+                  id: "approved",
+                  label: "Approved",
+                  count: leaveCounts.approved,
+                },
+                {
+                  id: "rejected",
+                  label: "Rejected",
+                  count: leaveCounts.rejected,
+                },
               ].map((f) => (
                 <button
                   className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
@@ -1708,7 +1973,10 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                     const isActioning = actionPendingId === leave._id;
 
                     return (
-                      <tr className="transition hover:bg-slate-50/70" key={leave._id}>
+                      <tr
+                        className="transition hover:bg-slate-50/70"
+                        key={leave._id}
+                      >
                         <td className="px-6 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
@@ -1723,14 +1991,18 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                             </div>
                             <div>
                               <span className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-slate-800">{leave.userId?.fullName}</span>
+                                <span className="text-xs font-semibold text-slate-800">
+                                  {leave.userId?.fullName}
+                                </span>
                                 {leave.userId?.designation && (
                                   <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 border border-indigo-100/80">
                                     {leave.userId.designation}
                                   </span>
                                 )}
                               </span>
-                              <span className="mt-0.5 block text-[10px] text-slate-400">{leave.userId?.email}</span>
+                              <span className="mt-0.5 block text-[10px] text-slate-400">
+                                {leave.userId?.email}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -1745,7 +2017,9 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                         <td className="px-4 py-3.5 text-xs text-slate-700 font-medium">
                           <div>
                             <span className="font-semibold">{fromStr}</span>
-                            {fromStr !== toStr && <span className="text-slate-400"> → {toStr}</span>}
+                            {fromStr !== toStr && (
+                              <span className="text-slate-400"> → {toStr}</span>
+                            )}
                           </div>
                           <span className="text-[10px] text-slate-400">
                             Applied {formatShortDate(leave.createdAt)}
@@ -1762,15 +2036,15 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                               leave.status === "pending"
                                 ? "bg-amber-100 text-amber-900 border-amber-300"
                                 : leave.status === "approved"
-                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                                : "bg-rose-100 text-rose-900 border-rose-300"
+                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                  : "bg-rose-100 text-rose-900 border-rose-300"
                             }`}
                           >
                             {leave.status === "pending"
                               ? "🟡 Pending"
                               : leave.status === "approved"
-                              ? "🟢 Approved"
-                              : "🔴 Rejected"}
+                                ? "🟢 Approved"
+                                : "🔴 Rejected"}
                           </span>
                         </td>
                         <td className="px-6 py-3.5 text-right">
@@ -1780,7 +2054,9 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                                 <button
                                   className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
                                   disabled={isActioning}
-                                  onClick={() => handleReviewLeave(leave._id, "approved")}
+                                  onClick={() =>
+                                    handleReviewLeave(leave._id, "approved")
+                                  }
                                   type="button"
                                 >
                                   <Check className="h-3.5 w-3.5" />
@@ -1789,7 +2065,9 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                                 <button
                                   className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50 transition"
                                   disabled={isActioning}
-                                  onClick={() => handleReviewLeave(leave._id, "rejected")}
+                                  onClick={() =>
+                                    handleReviewLeave(leave._id, "rejected")
+                                  }
                                   type="button"
                                 >
                                   <X className="h-3.5 w-3.5" />
@@ -1813,14 +2091,20 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
 
                 {!loading && filteredLeaves.length === 0 && (
                   <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={6}>
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={6}
+                    >
                       No leave requests found for this filter.
                     </td>
                   </tr>
                 )}
                 {loading && (
                   <tr>
-                    <td className="px-6 py-12 text-center text-sm text-slate-500" colSpan={6}>
+                    <td
+                      className="px-6 py-12 text-center text-sm text-slate-500"
+                      colSpan={6}
+                    >
                       Loading leave requests…
                     </td>
                   </tr>
@@ -1852,8 +2136,20 @@ export default function AttendancePage() {
   const role = String(session.role).toLowerCase();
 
   if (role === "employee") {
-    return <EmployeeAttendanceView logout={logout} realtimeStatus={realtimeStatus} session={session} />;
+    return (
+      <EmployeeAttendanceView
+        logout={logout}
+        realtimeStatus={realtimeStatus}
+        session={session}
+      />
+    );
   }
 
-  return <AdminAttendanceView logout={logout} realtimeStatus={realtimeStatus} session={session} />;
+  return (
+    <AdminAttendanceView
+      logout={logout}
+      realtimeStatus={realtimeStatus}
+      session={session}
+    />
+  );
 }
