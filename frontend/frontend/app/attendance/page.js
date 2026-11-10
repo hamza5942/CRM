@@ -82,6 +82,7 @@ function formatDuration(minutes = 0) {
 function getUtcYMD(d) {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(date.getTime())) return "";
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
@@ -118,36 +119,32 @@ function RealtimeBadge({ status }) {
 
 /**
  * MODAL: APPLY FOR LEAVE
+ * Rendered conditionally when modalOpen is true.
+ * No early returns before hooks to guarantee 100% stable React lifecycle.
  */
-function LeaveApplyModal({ isOpen, onClose, initialDate, token, onSuccess }) {
+function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
   const todayYMD = getLocalTodayYMD();
+  const validInitial = initialDate && initialDate >= todayYMD ? initialDate : todayYMD;
+
   const [leaveType, setLeaveType] = useState("sick");
-  const [fromDate, setFromDate] = useState(initialDate || todayYMD);
-  const [toDate, setToDate] = useState(initialDate || todayYMD);
+  const [fromDate, setFromDate] = useState(validInitial);
+  const [toDate, setToDate] = useState(validInitial);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  useEffect(() => {
-    if (initialDate) {
-      const validInitial = initialDate >= todayYMD ? initialDate : todayYMD;
-      setFromDate(validInitial);
-      setToDate(validInitial);
-    }
-  }, [initialDate, todayYMD]);
-
-  if (!isOpen) return null;
-
-  const daysCount = useMemo(() => {
-    if (!fromDate || !toDate) return 0;
+  let daysCount = 0;
+  if (fromDate && toDate) {
     const start = new Date(fromDate);
     const end = new Date(toDate);
-    if (end < start) return 0;
-    return Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-  }, [fromDate, toDate]);
+    if (end >= start) {
+      daysCount = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setModalError("");
 
     if (fromDate < todayYMD) {
@@ -185,15 +182,23 @@ function LeaveApplyModal({ isOpen, onClose, initialDate, token, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl transition-all">
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+    >
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-slate-900">Apply for Leave</h2>
             <p className="mt-0.5 text-xs text-slate-500">Corporate leave request for manager review</p>
           </div>
           <button
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            aria-label="Close modal"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
             onClick={onClose}
             type="button"
           >
@@ -298,12 +303,12 @@ function LeaveApplyModal({ isOpen, onClose, initialDate, token, onSuccess }) {
 }
 
 /**
- * EMPLOYEE CALENDAR COMPONENT:
- * Shows Month Calendar with interactive date cells, color-coded leaves,
- * bottom pagination controls, and worked hours.
+ * INTERACTIVE CALENDAR COMPONENT:
+ * Month calendar with clickable date cells, color-coded leaves,
+ * and bottom pagination.
  */
-function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate }) {
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const todayYMD = getLocalTodayYMD();
 
   const year = currentDate.getFullYear();
@@ -311,22 +316,24 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
 
   const monthName = new Intl.DateTimeFormat(undefined, { month: "long" }).format(currentDate);
 
-  const prevMonth = () => {
+  const prevMonth = (e) => {
+    e?.preventDefault();
     setCurrentDate(new Date(year, month - 1, 1));
   };
 
-  const nextMonth = () => {
+  const nextMonth = (e) => {
+    e?.preventDefault();
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  const jumpToday = () => {
+  const jumpToday = (e) => {
+    e?.preventDefault();
     setCurrentDate(new Date());
   };
 
-  // Calendar grid math
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayRaw = new Date(year, month, 1).getDay(); // 0 is Sunday
-  const startOffset = firstDayRaw === 0 ? 6 : firstDayRaw - 1; // Monday = 0
+  const firstDayRaw = new Date(year, month, 1).getDay();
+  const startOffset = firstDayRaw === 0 ? 6 : firstDayRaw - 1;
 
   const days = [];
   for (let i = 1; i <= daysInMonth; i++) {
@@ -355,7 +362,6 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
 
   return (
     <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-      {/* Calendar Header with Legend */}
       <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
         <div>
           <h2 className="text-base font-semibold text-slate-900">
@@ -366,7 +372,6 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
           </p>
         </div>
 
-        {/* Legend */}
         <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
@@ -383,7 +388,6 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
         </div>
       </div>
 
-      {/* Weekday Columns */}
       <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/70 text-center text-[11px] font-semibold text-slate-500">
         {weekHeaders.map((header) => (
           <div className="py-2.5" key={header}>
@@ -392,14 +396,11 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
         ))}
       </div>
 
-      {/* Calendar Grid */}
       <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 text-left">
-        {/* Blank offset cells for starting day */}
         {Array.from({ length: startOffset }).map((_, idx) => (
           <div className="min-h-[92px] bg-slate-50/30 p-2 text-slate-300" key={`blank-${idx}`} />
         ))}
 
-        {/* Days of month */}
         {days.map(({ dayNumber, dateStr }) => {
           const isPast = dateStr < todayYMD;
           const isToday = dateStr === todayYMD;
@@ -427,22 +428,25 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
 
           return (
             <div
-              className={`group relative min-h-[92px] p-2 transition flex flex-col justify-between ${cellTheme} ${
+              className={`group relative min-h-[92px] p-2 transition flex flex-col justify-between select-none ${cellTheme} ${
                 canApply ? "cursor-pointer" : "cursor-default opacity-85"
               }`}
               key={dateStr}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 if (canApply) {
                   onSelectDate(dateStr);
                 }
               }}
+              role="button"
+              tabIndex={canApply ? 0 : -1}
               title={
                 canApply
                   ? `Click to apply for leave on ${dateStr}`
                   : `Past date (${dateStr}) — leave applications not allowed`
               }
             >
-              {/* Day header & Today marker */}
               <div className="flex items-center justify-between">
                 <span
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
@@ -463,11 +467,10 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
                 )}
               </div>
 
-              {/* Leave Status Pill */}
               <div className="mt-1 space-y-1">
                 {leave && (
                   <span
-                    className={`inline-flex w-full items-center justify-between gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold border shadow-2xs ${badgeTheme}`}
+                    className={`inline-flex w-full items-center justify-between gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold border ${badgeTheme}`}
                   >
                     <span className="truncate">
                       {leave.status === "pending"
@@ -480,7 +483,6 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
                   </span>
                 )}
 
-                {/* Worked hours chip (if logged) */}
                 {att && att.activeMinutes > 0 && !leave && (
                   <span className="inline-flex w-full items-center gap-1 rounded-md bg-indigo-50/80 border border-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700">
                     <Clock3 className="h-2.5 w-2.5 shrink-0" />
@@ -489,7 +491,6 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
                 )}
               </div>
 
-              {/* Hover action hint for current & future dates */}
               {canApply && !leave && (
                 <div className="hidden group-hover:flex items-center justify-end text-[9px] text-indigo-600 font-medium">
                   + Apply
@@ -500,11 +501,10 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
         })}
       </div>
 
-      {/* Pagination & Month Controls at Bottom */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
         <div className="flex items-center gap-2">
           <button
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
             onClick={prevMonth}
             type="button"
           >
@@ -512,14 +512,14 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
             Previous
           </button>
           <button
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
             onClick={jumpToday}
             type="button"
           >
             Current Month
           </button>
           <button
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
             onClick={nextMonth}
             type="button"
           >
@@ -537,12 +537,7 @@ function EmployeeCalendar({ leaves = [], history = [], onSelectDate }) {
 }
 
 /**
- * EMPLOYEE PERSONAL ATTENDANCE VIEW:
- * Shows the logged-in employee's:
- * - Top overview cards
- * - Interactive Leave & Attendance Calendar with bottom pagination
- * - My Leave Applications list
- * - Daily Attendance Log table (with work hours)
+ * EMPLOYEE PERSONAL ATTENDANCE VIEW
  */
 function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
   const [history, setHistory] = useState([]);
@@ -559,7 +554,6 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Leave Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState("");
 
@@ -705,7 +699,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
         <div className="flex flex-wrap items-center gap-3">
           <RealtimeBadge status={realtimeStatus} />
           <button
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 px-4 text-xs font-semibold text-indigo-700 shadow-2xs hover:border-indigo-300 hover:text-indigo-900 transition"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 px-4 text-xs font-semibold text-indigo-700 shadow-xs hover:border-indigo-300 hover:text-indigo-900 transition"
             onClick={() => {
               setModalDate(getLocalTodayYMD());
               setModalOpen(true);
@@ -727,7 +721,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             {clockPending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
           </button>
           <Link
-            className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-100 px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-200"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-100 px-3.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-200"
             href="/tasks"
           >
             <ListTodo aria-hidden="true" className="h-3.5 w-3.5" />
@@ -738,7 +732,6 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}
 
-      {/* Attendance Stats Cards */}
       <section aria-label="Attendance statistics" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((item) => {
           const Icon = item.icon;
@@ -756,7 +749,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       </section>
 
       {/* Interactive Month Attendance & Leave Calendar */}
-      <EmployeeCalendar
+      <InteractiveAttendanceCalendar
         history={history}
         leaves={leaves}
         onSelectDate={(dateStr) => {
@@ -950,28 +943,29 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
         </div>
       </section>
 
-      {/* Leave Application Modal */}
-      <LeaveApplyModal
-        initialDate={modalDate}
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={() => setRefreshKey((k) => k + 1)}
-        token={session.token}
-      />
+      {/* Conditionally rendered modal: mounts only when open, 0 hook bugs */}
+      {modalOpen && (
+        <LeaveApplyModal
+          initialDate={modalDate}
+          onClose={() => setModalOpen(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+          token={session.token}
+        />
+      )}
     </>
   );
 }
 
 /**
- * ADMIN ATTENDANCE VIEW:
- * Has Two Tabs:
- * - "Team Attendance": Live daily attendance table with active/idle stats
- * - "Leave Management": Approve/reject leave requests submitted by employees
+ * ADMIN ATTENDANCE VIEW
+ * Has Three Tabs:
+ * - "Team Attendance": Table of employee status & daily active/idle time
+ * - "Leave Management": Approve or reject employee leave requests
+ * - "Calendar & Leaves": Interactive month calendar view
  */
 function AdminAttendanceView({ session, logout, realtimeStatus }) {
-  const [activeTab, setActiveTab] = useState("attendance"); // "attendance" | "leaves"
+  const [activeTab, setActiveTab] = useState("attendance"); // "attendance" | "leaves" | "calendar"
 
-  // Attendance Tab State
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -979,11 +973,13 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Leave Management Tab State
   const [leaves, setLeaves] = useState([]);
   const [leaveCounts, setLeaveCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
-  const [leaveFilter, setLeaveFilter] = useState("all"); // "all" | "pending" | "approved" | "rejected"
+  const [leaveFilter, setLeaveFilter] = useState("all");
   const [actionPendingId, setActionPendingId] = useState("");
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalDate, setModalDate] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -1048,9 +1044,6 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
   const checkedInCount = employees.filter((employee) => employee.clockedIn).length;
   const activeCount = employees.filter((employee) => employee.status === "active").length;
   const idleCount = employees.filter((employee) => employee.status === "idle").length;
-  const today = new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(
-    selectedDate ? new Date(selectedDate) : new Date()
-  );
 
   const summary = [
     { label: "Employees", value: loading ? "—" : String(employees.length), note: "Registered employee accounts", color: "text-slate-900" },
@@ -1069,12 +1062,22 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <RealtimeBadge status={realtimeStatus} />
+          <button
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 px-4 text-xs font-semibold text-indigo-700 shadow-xs hover:border-indigo-300 hover:text-indigo-900 transition"
+            onClick={() => {
+              setModalDate(getLocalTodayYMD());
+              setModalOpen(true);
+            }}
+            type="button"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Apply for Leave
+          </button>
         </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}
 
-      {/* Overview Cards */}
       <section aria-label="Team metrics" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summary.map((item) => (
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40" key={item.label}>
@@ -1099,6 +1102,20 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
           <Clock3 className="h-4 w-4" />
           Team Attendance
         </button>
+
+        <button
+          className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
+            activeTab === "calendar"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+          onClick={() => setActiveTab("calendar")}
+          type="button"
+        >
+          <Calendar className="h-4 w-4" />
+          Leave Calendar
+        </button>
+
         <button
           className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
             activeTab === "leaves"
@@ -1255,11 +1272,22 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
         </section>
       )}
 
-      {/* TAB 2: LEAVE MANAGEMENT */}
+      {/* TAB 2: INTERACTIVE CALENDAR */}
+      {activeTab === "calendar" && (
+        <InteractiveAttendanceCalendar
+          history={[]}
+          leaves={leaves}
+          onSelectDate={(dateStr) => {
+            setModalDate(dateStr);
+            setModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* TAB 3: LEAVE MANAGEMENT */}
       {activeTab === "leaves" && (
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
           <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-            {/* Filter buttons */}
             <div className="flex items-center gap-1.5">
               {[
                 { id: "all", label: "All Requests", count: leaveCounts.total },
@@ -1270,7 +1298,7 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                 <button
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                     leaveFilter === f.id
-                      ? "bg-indigo-600 text-white shadow-2xs"
+                      ? "bg-indigo-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                   key={f.id}
@@ -1370,7 +1398,7 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                         {isPending ? (
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 disabled:opacity-50 transition"
+                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition"
                               disabled={isActioning}
                               onClick={() => handleReviewLeave(leave._id, "approved")}
                               type="button"
@@ -1379,7 +1407,7 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
                               Approve
                             </button>
                             <button
-                              className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-rose-700 disabled:opacity-50 transition"
+                              className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50 transition"
                               disabled={isActioning}
                               onClick={() => handleReviewLeave(leave._id, "rejected")}
                               type="button"
@@ -1417,13 +1445,21 @@ function AdminAttendanceView({ session, logout, realtimeStatus }) {
           </div>
         </section>
       )}
+
+      {modalOpen && (
+        <LeaveApplyModal
+          initialDate={modalDate}
+          onClose={() => setModalOpen(false)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+          token={session.token}
+        />
+      )}
     </>
   );
 }
 
 /**
- * Root Attendance Page:
- * Conditionally renders Admin or Employee attendance view.
+ * Root Attendance Page
  */
 export default function AttendancePage() {
   const { session, logout } = useAuth();
