@@ -215,24 +215,6 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, designati
 
       {/* Docked to the very bottom */}
       <div className="mt-auto space-y-4 pt-4">
-        {/* System Status Card */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-200">System status</p>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">All systems operational</p>
-          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full w-[99.8%] rounded-full bg-emerald-400" />
-          </div>
-          <p className="mt-2 text-[10px] text-slate-500">
-            Uptime 99.98% · {isLive ? "Live realtime sync" : "Live auto-sync"}
-          </p>
-        </div>
-
         {/* User Profile & Logout at Bottom */}
         <div className="flex items-center gap-3 border-t border-white/10 px-2 pt-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-400/20 text-xs font-semibold text-indigo-200">

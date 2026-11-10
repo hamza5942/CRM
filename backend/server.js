@@ -10,6 +10,7 @@ const { attachRealtime, isAllowedOrigin } = require('./realtime');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const authRoutes = require('./routes/authRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
@@ -54,6 +55,7 @@ app.get('/', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leaves', leaveRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/leads', leadRoutes);
 

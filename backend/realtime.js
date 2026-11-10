@@ -105,6 +105,8 @@ function publishWorkspaceChange(reqOrIo, resource, data = {}) {
     io.emit('tasks:updated', payload);
   } else if (resource === 'leads') {
     io.emit('leads:updated', payload);
+  } else if (resource === 'leaves') {
+    io.emit('leaves:updated', payload);
   } else if (resource === 'employees') {
     io.emit('employees:updated', payload);
   }
