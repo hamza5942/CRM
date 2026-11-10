@@ -7,8 +7,8 @@ A unified enterprise platform combining Sales Pipeline & Lead Management, Real-T
 ## 📁 Repository Structure
 
 ```
-├── crm-backend/        # Express.js REST API, MongoDB Mongoose Models & Socket.IO Realtime
-├── crm-frontend/       # Next.js (App Router), React 19, Tailwind CSS Web Portal
+├── backend/            # Express.js REST API, MongoDB Mongoose Models & Socket.IO Realtime
+├── frontend/           # Next.js (App Router), React 19, Tailwind CSS Web Portal
 └── desktop-app/        # Electron Windows Daemon, System Idle Detection (powerMonitor)
 ```
 
@@ -16,18 +16,18 @@ A unified enterprise platform combining Sales Pipeline & Lead Management, Real-T
 
 ## 🚀 Quick Start Guide
 
-### 1. Backend (`crm-backend/`)
+### 1. Backend (`backend/`)
 ```bash
-cd crm-backend
+cd backend
 npm install
 # Configure your MongoDB URI and JWT secrets in .env
 npm run dev
 ```
-Runs at `http://localhost:5000` (or deployed on Hostinger / VPS).
+Runs at `http://localhost:5000` (or deployed serverless on Vercel).
 
-### 2. Frontend (`crm-frontend/`)
+### 2. Frontend (`frontend/frontend/`)
 ```bash
-cd crm-frontend
+cd frontend/frontend
 npm install
 npm run dev
 ```
