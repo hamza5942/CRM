@@ -164,7 +164,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <a
                 className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/60 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:text-indigo-800"
-                href="https://ai-data-scraper.vercel.app/"
+                href="https://aibusinessleads.codexsolutions.pro/"
                 rel="noopener noreferrer"
                 target="_blank"
                 title="AI Business Leads Scraper"

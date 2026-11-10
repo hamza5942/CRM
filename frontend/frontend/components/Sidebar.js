@@ -156,7 +156,7 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, designati
         <a
           aria-label="AI Business Leads Scraper"
           className="group flex items-center justify-between rounded-xl border border-indigo-400/25 bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-200 shadow-sm transition hover:border-indigo-400/50 hover:from-indigo-500/25 hover:to-purple-500/20 hover:text-white"
-          href="https://ai-data-scraper.vercel.app/"
+          href="https://aibusinessleads.codexsolutions.pro/"
           rel="noopener noreferrer"
           target="_blank"
         >

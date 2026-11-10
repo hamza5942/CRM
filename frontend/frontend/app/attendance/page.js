@@ -1262,28 +1262,6 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
               setModalOpen(true);
             }}
           />
-
-          {/* Helpful quick shortcut callout */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs">
-            <div className="flex items-center gap-2.5 text-indigo-900">
-              <Calendar className="h-4 w-4 text-indigo-600 shrink-0" />
-              <span>
-                Want to view or delete your applied leaves? Switch to the{" "}
-                <strong>My Leaves</strong> tab.
-              </span>
-            </div>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
-              onClick={() => {
-                setModalDate(getLocalTodayYMD());
-                setModalOpen(true);
-              }}
-              type="button"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Apply for Leave
-            </button>
-          </div>
         </div>
       )}
 

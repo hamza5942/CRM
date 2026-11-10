@@ -306,7 +306,7 @@ export default function CrmPage() {
           <a
             aria-label="AI Business Leads Scraper"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-indigo-200/90 bg-gradient-to-r from-indigo-50 via-white to-purple-50 px-4 text-sm font-semibold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:from-indigo-100 hover:to-purple-100 hover:text-indigo-900"
-            href="https://ai-data-scraper.vercel.app/"
+            href="https://aibusinessleads.codexsolutions.pro/"
             rel="noopener noreferrer"
             target="_blank"
           >
