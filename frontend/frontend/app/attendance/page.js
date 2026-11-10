@@ -81,6 +81,7 @@ function formatShortDate(dateString) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
+    year: "numeric",
   }).format(new Date(dateString));
 }
 
@@ -205,7 +206,7 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
             <p style="margin: 0; color: #b45309; font-weight: 600;">Status: Pending Review (Marked Yellow on Calendar)</p>
           </div>
         `,
-        confirmButtonText: "Great, thanks!",
+        confirmButtonText: "Got it!",
         confirmButtonColor: "#4f46e5",
         background: "#ffffff",
         customClass: {
@@ -231,14 +232,14 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
       role="dialog"
     >
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4.5 bg-gradient-to-r from-slate-50 to-indigo-50/30">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-indigo-50/30">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-indigo-600" />
               Apply for Leave
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Corporate leave application for manager review & approval
+              Submit corporate leave for manager review & approval
             </p>
           </div>
           <button
@@ -349,7 +350,7 @@ function LeaveApplyModal({ onClose, initialDate, token, onSuccess }) {
 
 /**
  * BEAUTIFUL, DECLUTTERED INTERACTIVE CALENDAR:
- * Clean card styling, color-coded leaves (Yellow Pending, Green Approved, Red Rejected),
+ * Clean month grid, color-coded leaves (Yellow Pending, Green Approved, Red Rejected),
  * past-date restriction, and bottom pagination controls.
  */
 function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate }) {
@@ -378,7 +379,7 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayRaw = new Date(year, month, 1).getDay();
-  // Monday as first day of week: Sunday (0) becomes 6, otherwise raw - 1
+  // Monday as first day of week
   const startOffset = firstDayRaw === 0 ? 6 : firstDayRaw - 1;
 
   const days = [];
@@ -408,7 +409,7 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-200/40">
-      {/* Calendar Header with Title & Legend */}
+      {/* Calendar Header with Title, Month Controls & Legend */}
       <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:px-6">
         <div>
           <div className="flex items-center gap-2.5">
@@ -429,7 +430,7 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600 bg-slate-50/70 p-2 rounded-xl border border-slate-100">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600 bg-slate-50/80 p-2.5 rounded-xl border border-slate-150">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-100" />
             Pending (Yellow)
@@ -462,7 +463,7 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
       <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 text-left bg-slate-50/30">
         {/* Leading Blank Cells */}
         {Array.from({ length: startOffset }).map((_, idx) => (
-          <div className="min-h-[96px] bg-slate-50/40 p-2" key={`blank-${idx}`} />
+          <div className="min-h-[100px] bg-slate-50/40 p-2" key={`blank-${idx}`} />
         ))}
 
         {/* Month Day Cells */}
@@ -492,7 +493,7 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
 
           return (
             <div
-              className={`group relative min-h-[96px] p-2 sm:p-2.5 transition flex flex-col justify-between select-none ${cellBg} ${
+              className={`group relative min-h-[100px] p-2.5 transition flex flex-col justify-between select-none ${cellBg} ${
                 canApply ? "cursor-pointer" : "cursor-not-allowed opacity-75 bg-slate-50/30"
               }`}
               key={dateStr}
@@ -605,14 +606,16 @@ function InteractiveAttendanceCalendar({ leaves = [], history = [], onSelectDate
 
 /**
  * EMPLOYEE PERSONAL ATTENDANCE VIEW
- * Sleek, decluttered layout with segmented tabs:
- * - Tab 1: "Month Calendar & Leaves" (Interactive Month Calendar + My Leave Applications with Delete button)
- * - Tab 2: "Attendance Logs" (Daily log table with clock in/out, active/idle time, and auto-clockout tags)
+ * Has 3 Dedicated Tabs to ensure clean, spacious, uncluttered UI:
+ * - Tab 1: "Attendance & Leave Calendar" (Interactive Month Calendar)
+ * - Tab 2: "My Leaves" (Employee leave applications with filters and deletion for ALL statuses: pending, approved, rejected)
+ * - Tab 3: "Attendance Logs" (Daily log table with clock in/out, active/idle time, and auto-clockout tags)
  */
 function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
-  const [activeTab, setActiveTab] = useState("calendar"); // "calendar" | "logs"
+  const [activeTab, setActiveTab] = useState("calendar"); // "calendar" | "leaves" | "logs"
   const [history, setHistory] = useState([]);
   const [leaves, setLeaves] = useState([]);
+  const [leaveFilter, setLeaveFilter] = useState("all"); // "all" | "pending" | "approved" | "rejected"
   const [summaryData, setSummaryData] = useState({
     totalDaysPresent: 0,
     completedDays: 0,
@@ -667,6 +670,11 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
     });
   }, [history, search]);
 
+  const filteredLeaves = useMemo(() => {
+    if (leaveFilter === "all") return leaves;
+    return leaves.filter((l) => l.status === leaveFilter);
+  }, [leaves, leaveFilter]);
+
   const todayRecord = history.find((record) => {
     const today = new Date();
     const recDate = new Date(record.date);
@@ -705,18 +713,30 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
   };
 
   /**
-   * DELETE / WITHDRAW LEAVE REQUEST
-   * Prompts user with SweetAlert confirmation, then deletes and updates UI.
+   * DELETE LEAVE RECORD
+   * Allows deleting any leave request (pending, approved, or rejected) with a sweet alert confirmation.
    */
-  const handleDeleteLeave = async (leaveId, leaveLabel) => {
+  const handleDeleteLeave = async (leaveId, leaveLabel, leaveStatus) => {
+    const statusNote =
+      leaveStatus === "approved"
+        ? "This leave was already approved."
+        : leaveStatus === "rejected"
+        ? "This leave was rejected."
+        : "This leave request is currently pending.";
+
     const confirmation = await Swal.fire({
-      title: "Delete Leave Request?",
-      text: `Are you sure you want to withdraw and delete this ${leaveLabel || "leave"} request?`,
+      title: "Delete Leave Record?",
+      html: `
+        <div style="font-size: 13px; line-height: 1.5; color: #475569; text-align: left; padding: 4px 6px;">
+          <p style="margin-bottom: 6px;">Are you sure you want to delete this <strong>${leaveLabel || "leave"}</strong> record?</p>
+          <p style="font-size: 12px; color: #64748b; margin: 0;">${statusNote} It will be permanently removed from your calendar and attendance record.</p>
+        </div>
+      `,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#e11d48", // Rose 600
       cancelButtonColor: "#64748b", // Slate 500
-      confirmButtonText: "Yes, delete request",
+      confirmButtonText: "Yes, delete record",
       cancelButtonText: "Cancel",
       background: "#ffffff",
       customClass: {
@@ -739,9 +759,9 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
 
       await Swal.fire({
         icon: "success",
-        title: "Request Deleted",
-        text: "Your leave application has been withdrawn and removed.",
-        timer: 2000,
+        title: "Deleted Successfully",
+        text: "The leave record has been deleted from your account.",
+        timer: 1800,
         showConfirmButton: false,
         background: "#ffffff",
         customClass: {
@@ -752,7 +772,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
       Swal.fire({
         icon: "error",
         title: "Could Not Delete",
-        text: err instanceof Error ? err.message : "Failed to withdraw leave request.",
+        text: err instanceof Error ? err.message : "Failed to delete leave request.",
         confirmButtonColor: "#4f46e5",
       });
     }
@@ -800,6 +820,8 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
   ];
 
   const pendingLeavesCount = leaves.filter((l) => l.status === "pending").length;
+  const approvedLeavesCount = leaves.filter((l) => l.status === "approved").length;
+  const rejectedLeavesCount = leaves.filter((l) => l.status === "rejected").length;
 
   return (
     <>
@@ -871,11 +893,12 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
         })}
       </section>
 
-      {/* SEGMENTED VIEW SWITCHER: Declutters page completely */}
-      <div className="mb-6 flex items-center justify-between border-b border-slate-200">
-        <div className="flex items-center gap-1 sm:gap-2">
+      {/* THREE DEDICATED TABS: Attendance & Leave Calendar | My Leaves | Attendance Logs */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+          {/* Tab 1 */}
           <button
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-xs sm:text-sm font-semibold transition ${
+            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
               activeTab === "calendar"
                 ? "border-indigo-600 text-indigo-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -884,16 +907,33 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             type="button"
           >
             <Calendar className="h-4 w-4" />
-            Month Calendar & Leaves
-            {pendingLeavesCount > 0 && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                {pendingLeavesCount} Pending
-              </span>
-            )}
+            Attendance & Leave Calendar
           </button>
 
+          {/* Tab 2 */}
           <button
-            className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-xs sm:text-sm font-semibold transition ${
+            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
+              activeTab === "leaves"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+            onClick={() => setActiveTab("leaves")}
+            type="button"
+          >
+            <CalendarDays className="h-4 w-4" />
+            My Leaves
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                pendingLeavesCount > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {leaves.length}
+            </span>
+          </button>
+
+          {/* Tab 3 */}
+          <button
+            className={`inline-flex items-center gap-2 border-b-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition ${
               activeTab === "logs"
                 ? "border-indigo-600 text-indigo-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -902,7 +942,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             type="button"
           >
             <Clock3 className="h-4 w-4" />
-            Daily Attendance Logs
+            Attendance Logs
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
               {history.length}
             </span>
@@ -910,7 +950,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
         </div>
 
         <button
-          className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
+          className="hidden md:inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200/80 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
           onClick={() => {
             setModalDate(getLocalTodayYMD());
             setModalOpen(true);
@@ -918,14 +958,13 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
           type="button"
         >
           <Plus className="h-3.5 w-3.5" />
-          Request Leave
+          Apply for Leave
         </button>
       </div>
 
-      {/* TAB 1: CALENDAR & LEAVES */}
+      {/* TAB 1: ATTENDANCE & LEAVE CALENDAR */}
       {activeTab === "calendar" && (
-        <div className="space-y-6">
-          {/* Beautiful Month Calendar */}
+        <div className="space-y-4">
           <InteractiveAttendanceCalendar
             history={history}
             leaves={leaves}
@@ -935,121 +974,185 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
             }}
           />
 
-          {/* My Submitted Leave Requests with Delete Button */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 px-5 py-4 sm:px-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-indigo-600" />
-                  My Leave Applications
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Review status of your leave requests. You can withdraw or delete any request.
-                </p>
-              </div>
-
-              <span className="text-xs font-medium text-slate-500">
-                Total Requests: <strong className="text-slate-800">{leaves.length}</strong>
+          {/* Helpful quick shortcut callout */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs">
+            <div className="flex items-center gap-2.5 text-indigo-900">
+              <Calendar className="h-4 w-4 text-indigo-600 shrink-0" />
+              <span>
+                Want to view or delete your applied leaves? Switch to the <strong>My Leaves</strong> tab.
               </span>
             </div>
-
-            {leaves.length > 0 ? (
-              <div className="divide-y divide-slate-100">
-                {leaves.map((leave) => {
-                  const meta = getLeaveTypeMeta(leave.leaveType);
-                  const fromStr = formatDate(leave.fromDate);
-                  const toStr = formatDate(leave.toDate);
-
-                  return (
-                    <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:px-6 transition hover:bg-slate-50/50"
-                      key={leave._id}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg shadow-2xs">
-                          {meta.icon}
-                        </span>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">{meta.label}</span>
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                                leave.status === "pending"
-                                  ? "bg-amber-100 text-amber-900 border-amber-300"
-                                  : leave.status === "approved"
-                                  ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                                  : "bg-rose-100 text-rose-900 border-rose-300"
-                              }`}
-                            >
-                              {leave.status === "pending"
-                                ? "🟡 Pending Review"
-                                : leave.status === "approved"
-                                ? "🟢 Approved"
-                                : "🔴 Rejected"}
-                            </span>
-                          </div>
-
-                          <p className="mt-1 text-xs text-slate-700 font-semibold">
-                            {fromStr} {fromStr !== toStr ? `→ ${toStr}` : ""}
-                          </p>
-
-                          <p className="mt-1 text-xs text-slate-600">
-                            <span className="text-slate-400 font-medium">Reason: </span>
-                            &ldquo;{leave.reason}&rdquo;
-                          </p>
-
-                          {leave.reviewNotes && (
-                            <p className="mt-1 text-[11px] text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                              <strong>Admin Feedback:</strong> {leave.reviewNotes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Delete Button for Employee */}
-                      <div className="self-end sm:self-center flex items-center gap-2">
-                        <button
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 hover:border-rose-300 transition"
-                          onClick={() => handleDeleteLeave(leave._id, meta.label)}
-                          title="Delete or withdraw this leave request"
-                          type="button"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                          Delete Request
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-8 text-center">
-                <CalendarDays className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-xs font-semibold text-slate-700">No leave requests found</p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  Click any date on the calendar above to request time off.
-                </p>
-                <button
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition"
-                  onClick={() => {
-                    setModalDate(getLocalTodayYMD());
-                    setModalOpen(true);
-                  }}
-                  type="button"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Apply Now
-                </button>
-              </div>
-            )}
-          </section>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
+              onClick={() => {
+                setModalDate(getLocalTodayYMD());
+                setModalOpen(true);
+              }}
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Apply for Leave
+            </button>
+          </div>
         </div>
       )}
 
-      {/* TAB 2: DETAILED ATTENDANCE LOGS */}
+      {/* TAB 2: MY LEAVES (With Delete button for pending, approved, and rejected leaves) */}
+      {activeTab === "leaves" && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
+          {/* Sub-header with Filter Pills */}
+          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:px-6">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: "all", label: "All Leaves", count: leaves.length },
+                { id: "pending", label: "Pending", count: pendingLeavesCount },
+                { id: "approved", label: "Approved", count: approvedLeavesCount },
+                { id: "rejected", label: "Rejected", count: rejectedLeavesCount },
+              ].map((f) => (
+                <button
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                    leaveFilter === f.id
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                  key={f.id}
+                  onClick={() => setLeaveFilter(f.id)}
+                  type="button"
+                >
+                  {f.label} ({f.count})
+                </button>
+              ))}
+            </div>
+
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition self-start sm:self-auto"
+              onClick={() => {
+                setModalDate(getLocalTodayYMD());
+                setModalOpen(true);
+              }}
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Apply for Leave
+            </button>
+          </div>
+
+          {/* Leaves List */}
+          {filteredLeaves.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {filteredLeaves.map((leave) => {
+                const meta = getLeaveTypeMeta(leave.leaveType);
+                const fromStr = formatDate(leave.fromDate);
+                const toStr = formatDate(leave.toDate);
+
+                // calculate duration
+                let durationDays = 1;
+                if (leave.fromDate && leave.toDate) {
+                  const s = new Date(leave.fromDate);
+                  const e = new Date(leave.toDate);
+                  if (e >= s) {
+                    durationDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+                  }
+                }
+
+                return (
+                  <div
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:px-6 transition hover:bg-slate-50/60"
+                    key={leave._id}
+                  >
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-xl shadow-2xs border border-slate-200/60">
+                        {meta.icon}
+                      </span>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold text-slate-900">{meta.label}</span>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                              leave.status === "pending"
+                                ? "bg-amber-100 text-amber-900 border-amber-300"
+                                : leave.status === "approved"
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                                : "bg-rose-100 text-rose-900 border-rose-300"
+                            }`}
+                          >
+                            {leave.status === "pending"
+                              ? "🟡 Pending Review"
+                              : leave.status === "approved"
+                              ? "🟢 Approved"
+                              : "🔴 Rejected"}
+                          </span>
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {durationDays} {durationDays === 1 ? "day" : "days"}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-700 font-semibold">
+                          📅 {fromStr} {fromStr !== toStr ? `→ ${toStr}` : ""}
+                        </p>
+
+                        <p className="text-xs text-slate-600">
+                          <span className="text-slate-400 font-medium">Reason: </span>
+                          &ldquo;{leave.reason}&rdquo;
+                        </p>
+
+                        {leave.reviewNotes && (
+                          <div className="mt-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[11px] text-slate-700">
+                            <strong>Reviewer Note:</strong> {leave.reviewNotes}
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-slate-400 pt-0.5">
+                          Submitted on {formatShortDate(leave.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* DELETE BUTTON: Available for ALL statuses (pending, approved, or rejected) */}
+                    <div className="self-end sm:self-center shrink-0">
+                      <button
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 px-3.5 py-2 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 hover:border-rose-300 transition"
+                        onClick={() => handleDeleteLeave(leave._id, meta.label, leave.status)}
+                        title="Delete this leave record"
+                        type="button"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-12 text-center">
+              <CalendarDays className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-800">
+                {leaveFilter === "all" ? "No leave requests found" : `No ${leaveFilter} leave requests`}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                You can apply for leave using the button below or by clicking a date on the calendar tab.
+              </p>
+              <button
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
+                onClick={() => {
+                  setModalDate(getLocalTodayYMD());
+                  setModalOpen(true);
+                }}
+                type="button"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Apply for Leave
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 3: ATTENDANCE LOGS */}
       {activeTab === "logs" && (
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
+          <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:px-6">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Daily Attendance History Log</h2>
               <p className="mt-0.5 text-xs text-slate-500">Tracked work records, check in/out times, and durations</p>
