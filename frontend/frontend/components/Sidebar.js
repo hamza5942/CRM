@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Download, Laptop, LogOut, X } from "lucide-react";
+import { Download, ExternalLink, Laptop, LogOut, Sparkles, X } from "lucide-react";
 import CompanyLogo from "./CompanyLogo";
 import { useRealtimeStatus } from "../lib/realtime";
 
@@ -147,6 +147,28 @@ function SidebarContents({ pathname, closeMenu, role, email, fullName, designati
           );
         })}
       </nav>
+
+      {/* AI Tools */}
+      <div className="mt-4 pt-3 border-t border-white/10">
+        <p className="mb-2 px-3 text-[10px] font-semibold tracking-[0.2em] text-indigo-400 uppercase">
+          AI Tools
+        </p>
+        <a
+          aria-label="AI Business Leads Scraper"
+          className="group flex items-center justify-between rounded-xl border border-indigo-400/25 bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-200 shadow-sm transition hover:border-indigo-400/50 hover:from-indigo-500/25 hover:to-purple-500/20 hover:text-white"
+          href="https://ai-data-scraper.vercel.app/"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-500/25 text-indigo-300 transition group-hover:bg-indigo-500/40 group-hover:text-indigo-100">
+              <Sparkles className="h-3.5 w-3.5" />
+            </span>
+            <span>AI Business Leads</span>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 text-indigo-300/60 transition group-hover:translate-x-0.5 group-hover:text-white" />
+        </a>
+      </div>
 
       {/* Sleek Side Card for Desktop Tracker (Vanishes once installed or dismissed) */}
       {!installed && (

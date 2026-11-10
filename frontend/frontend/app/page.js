@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, CircleDollarSign, Users } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, ExternalLink, Sparkles, Users } from "lucide-react";
 import { ApiError, apiRequest } from "../lib/api";
 import { useWorkspaceUpdates, useRealtimeStatus } from "../lib/realtime";
 import { useAuth } from "../components/AuthContext";
@@ -161,7 +161,20 @@ export default function Home() {
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div><h2 className="text-base font-semibold text-slate-900">Sales pipeline</h2><p className="mt-1 text-xs text-slate-500">Real leads grouped by stage</p></div>
-            <Link className="text-xs font-semibold text-indigo-600 hover:text-indigo-700" href="/crm">View pipeline <span aria-hidden="true">→</span></Link>
+            <div className="flex items-center gap-3">
+              <a
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/60 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:text-indigo-800"
+                href="https://ai-data-scraper.vercel.app/"
+                rel="noopener noreferrer"
+                target="_blank"
+                title="AI Business Leads Scraper"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                AI Business Leads
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </a>
+              <Link className="text-xs font-semibold text-indigo-600 hover:text-indigo-700" href="/crm">View pipeline <span aria-hidden="true">→</span></Link>
+            </div>
           </div>
           <div className="mb-5 rounded-xl bg-slate-50 p-4">
             <p className="text-xs font-medium text-slate-500">Total open pipeline value</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { ApiError, apiRequest } from "../../lib/api";
 import { useWorkspaceUpdates } from "../../lib/realtime";
 import { useAuth } from "../../components/AuthContext";
@@ -302,14 +302,27 @@ export default function CrmPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Sales pipeline</h1>
           <p className="mt-2 text-sm text-slate-500">Manage saved leads, domain lifecycles, and their current stages.</p>
         </div>
-        <button
-          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:self-auto"
-          onClick={() => setFormOpen((open) => !open)}
-          type="button"
-        >
-          {formOpen ? <X aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />}
-          {formOpen ? "Close" : "Add lead"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            aria-label="AI Business Leads Scraper"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-indigo-200/90 bg-gradient-to-r from-indigo-50 via-white to-purple-50 px-4 text-sm font-semibold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:from-indigo-100 hover:to-purple-100 hover:text-indigo-900"
+            href="https://ai-data-scraper.vercel.app/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <Sparkles aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+            <span>AI Business Leads</span>
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-indigo-400" />
+          </a>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:self-auto"
+            onClick={() => setFormOpen((open) => !open)}
+            type="button"
+          >
+            {formOpen ? <X aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />}
+            {formOpen ? "Close" : "Add lead"}
+          </button>
+        </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}
