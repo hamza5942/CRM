@@ -226,13 +226,9 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   const isOwner = leave.userId.toString() === req.user.id;
   const isUserAdmin = req.user.role === 'admin';
 
+  // Employees can delete their own leave requests; admins can delete any
   if (!isOwner && !isUserAdmin) {
-    return res.status(403).json({ error: 'You are not authorized to withdraw this leave request.' });
-  }
-
-  // Employees can only withdraw their own pending leaves
-  if (isOwner && !isUserAdmin && leave.status !== 'pending') {
-    return res.status(400).json({ error: 'You cannot withdraw a leave request that has already been reviewed.' });
+    return res.status(403).json({ error: 'You are not authorized to delete this leave request.' });
   }
 
   await Leave.deleteOne({ _id: id });
