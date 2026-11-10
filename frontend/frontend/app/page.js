@@ -99,26 +99,7 @@ export default function Home() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Welcome back, {session.fullName}</h1>
           <p className="mt-2 text-sm text-slate-500">Here&apos;s what&apos;s happening across your workspace.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {realtimeStatus === "connected" ? (
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              </span>
-              Live Sync Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
-              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-              {realtimeStatus === "connecting" ? "Connecting live sync..." : "Live Auto-sync Active"}
-            </span>
-          )}
-          <Link className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:self-auto" href="/employees">
-            <Users aria-hidden="true" className="h-4 w-4 text-slate-500" />
-            Manage employees
-          </Link>
-        </div>
+       
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}

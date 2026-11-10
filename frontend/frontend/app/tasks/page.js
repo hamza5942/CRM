@@ -287,41 +287,6 @@ export default function EmployeeDailyPortal() {
             }).format(today) : "Loading date…"}
           </p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {realtimeStatus === "connected" ? (
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              </span>
-              Live Sync Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
-              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-              {realtimeStatus === "connecting" ? "Connecting live sync..." : "Live Auto-sync Active"}
-            </span>
-          )}
-
-          {attendanceAvailable && (
-            <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium ${isClockedIn ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600"}`}>
-              <span className={`h-2.5 w-2.5 rounded-full ${isClockedIn ? "bg-emerald-500" : "bg-slate-300"}`} />
-              {isClockedIn ? "Time tracking active" : "Not clocked in"}
-            </div>
-          )}
-          {attendanceAvailable && (
-            <button
-              className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-wait disabled:opacity-60 ${isClockedIn ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-100" : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-100"}`}
-              disabled={pending || loading}
-              onClick={toggleClock}
-              type="button"
-            >
-              {isClockedIn ? <LogOut aria-hidden="true" className="h-4 w-4" /> : <LogIn aria-hidden="true" className="h-4 w-4" />}
-              {pending ? "Saving…" : isClockedIn ? "Clock out" : "Clock in"}
-            </button>
-          )}
-        </div>
       </header>
 
       {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{error}</div>}

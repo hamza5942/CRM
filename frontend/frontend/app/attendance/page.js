@@ -939,7 +939,7 @@ function EmployeeAttendanceView({ session, logout, realtimeStatus }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <RealtimeBadge status={realtimeStatus} />
+          {/* <RealtimeBadge status={realtimeStatus} /> */}
           <button
             className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/90 px-3.5 text-xs font-semibold text-indigo-700 shadow-2xs hover:border-indigo-300 hover:text-indigo-900 transition"
             onClick={() => {
