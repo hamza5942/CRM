@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 try {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -85,10 +86,12 @@ if (!gotTheLock) {
 function getCurrentStatus() {
   if (forcedStatus) return forcedStatus;
   try {
-    return powerMonitor.getSystemIdleTime() >= IDLE_THRESHOLD_SECONDS ? 'idle' : 'active';
+    const idleSeconds = powerMonitor.getSystemIdleTime();
+    return idleSeconds >= IDLE_THRESHOLD_SECONDS ? 'idle' : 'active';
   } catch (error) {
-    console.error('Unable to read system idle time:', error);
-    return 'offline';
+    // On some Linux distributions (Wayland or missing libxss), system idle time may not be queryable.
+    // Default to 'active' while tracking is active so employee hours continue to be recorded.
+    return 'active';
   }
 }
 
@@ -118,21 +121,74 @@ function publishState() {
   updateTrayMenu();
 }
 
-function saveSession() {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Secure local token storage is unavailable on this computer.');
+function getFallbackEncryptionKey() {
+  const identifier = [
+    process.env.USER || process.env.USERNAME || 'employee',
+    app.getPath('userData'),
+    process.platform,
+    process.arch,
+  ].join('::');
+  return crypto.createHash('sha256').update(identifier).digest();
+}
+
+function encryptSessionPayload(plainText) {
+  try {
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      return {
+        scheme: 'safeStorage',
+        encrypted: safeStorage.encryptString(plainText).toString('base64'),
+      };
+    }
+  } catch (err) {
+    console.warn('safeStorage encryption failed, falling back to AES-256-GCM:', err.message);
   }
 
+  // Cross-platform fallback for Linux Mint / desktop environments without unlocked gnome-keyring
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getFallbackEncryptionKey(), iv);
+  let enc = cipher.update(plainText, 'utf8', 'base64');
+  enc += cipher.final('base64');
+  return {
+    scheme: 'fallbackGcm',
+    iv: iv.toString('base64'),
+    tag: cipher.getAuthTag().toString('base64'),
+    encrypted: enc,
+  };
+}
+
+function decryptSessionPayload(saved) {
+  if (saved.scheme === 'fallbackGcm') {
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      getFallbackEncryptionKey(),
+      Buffer.from(saved.iv, 'base64')
+    );
+    decipher.setAuthTag(Buffer.from(saved.tag, 'base64'));
+    let dec = decipher.update(saved.encrypted, 'base64', 'utf8');
+    dec += decipher.final('utf8');
+    return dec;
+  }
+
+  // safeStorage scheme or legacy fallback
+  if (safeStorage && safeStorage.isEncryptionAvailable()) {
+    const rawBuffer = Buffer.from(saved.encrypted, 'base64');
+    return safeStorage.decryptString(rawBuffer);
+  }
+
+  throw new Error('Local secure storage is not accessible.');
+}
+
+function saveSession() {
   const serialized = JSON.stringify({
     token: session.token,
     expiresAt: session.expiresAt,
     user: session.user,
     tracking,
   });
-  const encrypted = safeStorage.encryptString(serialized).toString('base64');
+  const storedData = encryptSessionPayload(serialized);
   const tempFile = `${SESSION_FILE}.tmp`;
   fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true });
-  fs.writeFileSync(tempFile, JSON.stringify({ encrypted }), { mode: 0o600 });
+  fs.writeFileSync(tempFile, JSON.stringify(storedData), { mode: 0o600 });
   fs.renameSync(tempFile, SESSION_FILE);
 }
 
@@ -155,11 +211,8 @@ function restoreSession() {
   if (!fs.existsSync(SESSION_FILE)) return;
 
   try {
-    if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error('Secure local token storage is unavailable on this computer.');
-    }
     const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-    const serialized = safeStorage.decryptString(Buffer.from(saved.encrypted, 'base64'));
+    const serialized = decryptSessionPayload(saved);
     const data = JSON.parse(serialized);
     if (
       typeof data.token !== 'string' ||
@@ -374,10 +427,23 @@ function createWindow(showWindow = true) {
 }
 
 function makeTrayIcon() {
+  const pngPath = path.join(__dirname, 'icon.png');
   const icoPath = path.join(__dirname, 'icon.ico');
-  if (fs.existsSync(icoPath)) {
+
+  // Linux Mint / Ubuntu / desktop environments require PNG or SVG for status indicators
+  if (process.platform === 'linux' && fs.existsSync(pngPath)) {
+    const img = nativeImage.createFromPath(pngPath);
+    if (!img.isEmpty()) return img.resize({ width: 22, height: 22 });
+  }
+
+  if (process.platform === 'win32' && fs.existsSync(icoPath)) {
     const img = nativeImage.createFromPath(icoPath);
     if (!img.isEmpty()) return img;
+  }
+
+  if (fs.existsSync(pngPath)) {
+    const img = nativeImage.createFromPath(pngPath);
+    if (!img.isEmpty()) return img.resize({ width: 22, height: 22 });
   }
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
@@ -418,9 +484,6 @@ function updateTrayMenu() {
 async function login({ email, password }) {
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
     throw new Error('Enter your work email and password.');
-  }
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Secure local token storage is unavailable on this computer.');
   }
 
   let response;
@@ -565,6 +628,38 @@ async function quitApplication() {
 function configureAutoLaunch() {
   const enabled = process.env.AUTO_LAUNCH === 'true';
   if (process.defaultApp && process.argv.length >= 2) return;
+
+  if (process.platform === 'linux') {
+    const autostartDir = path.join(app.getPath('home'), '.config', 'autostart');
+    const desktopFile = path.join(autostartDir, 'crm-tracker.desktop');
+    if (enabled) {
+      const iconPath = path.join(__dirname, 'icon.png');
+      const desktopEntry = [
+        '[Desktop Entry]',
+        'Type=Application',
+        'Version=1.0',
+        'Name=Employee Tracker',
+        'Comment=Attendance & Activity Tracker',
+        `Exec="${process.execPath}" --hidden`,
+        'StartupNotify=false',
+        'Terminal=false',
+        `Icon=${fs.existsSync(iconPath) ? iconPath : 'utilities-system-monitor'}`,
+      ].join('\n');
+
+      try {
+        fs.mkdirSync(autostartDir, { recursive: true });
+        fs.writeFileSync(desktopFile, desktopEntry);
+      } catch (err) {
+        console.error('Failed to configure Linux autostart:', err);
+      }
+    } else {
+      try {
+        if (fs.existsSync(desktopFile)) fs.unlinkSync(desktopFile);
+      } catch (_) {}
+    }
+    return;
+  }
+
   app.setLoginItemSettings({
     openAtLogin: enabled,
     openAsHidden: true,

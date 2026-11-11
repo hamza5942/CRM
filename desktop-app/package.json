@@ -19,6 +19,14 @@
       ],
       "icon": "icon.ico"
     },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "icon.png"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
@@ -44,6 +52,7 @@
       "styles.css",
       ".env",
       "icon.ico",
+      "icon.png",
       "package.json"
     ]
   },
