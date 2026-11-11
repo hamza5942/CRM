@@ -7,7 +7,9 @@
     "start": "electron .",
     "dev": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
+    "dist:linux": "electron-builder --linux tar.gz"
   },
   "build": {
     "appId": "com.codexcrm.employeetracker",
