@@ -23,6 +23,7 @@ const {
   powerMonitor,
   safeStorage,
   ipcMain,
+  Notification,
 } = require('electron');
 
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -83,14 +84,37 @@ if (!gotTheLock) {
   });
 }
 
+function getLinuxIdleSeconds() {
+  // 1. Electron powerMonitor
+  try {
+    const idle = powerMonitor.getSystemIdleTime();
+    if (typeof idle === 'number' && !isNaN(idle) && idle >= 0) {
+      return idle;
+    }
+  } catch (_) {}
+
+  // 2. xprintidle CLI fallback (widely supported on Linux Mint / Ubuntu / Debian)
+  if (process.platform === 'linux') {
+    try {
+      const { execSync } = require('child_process');
+      const out = execSync('xprintidle', { timeout: 800, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const ms = parseInt(out, 10);
+      if (!isNaN(ms) && ms >= 0) {
+        return Math.floor(ms / 1000);
+      }
+    } catch (_) {}
+  }
+
+  return 0; // Default to active (0 seconds idle) to protect employee hours
+}
+
 function getCurrentStatus() {
   if (forcedStatus) return forcedStatus;
   try {
-    const idleSeconds = powerMonitor.getSystemIdleTime();
+    const idleSeconds = process.platform === 'linux' ? getLinuxIdleSeconds() : powerMonitor.getSystemIdleTime();
     return idleSeconds >= IDLE_THRESHOLD_SECONDS ? 'idle' : 'active';
   } catch (error) {
-    // On some Linux distributions (Wayland or missing libxss), system idle time may not be queryable.
-    // Default to 'active' while tracking is active so employee hours continue to be recorded.
+    // If idle check fails on Linux Mint, default to 'active' so employee hours are never lost
     return 'active';
   }
 }
@@ -98,7 +122,7 @@ function getCurrentStatus() {
 function getPublicState() {
   let currentIdleSeconds = 0;
   try {
-    currentIdleSeconds = powerMonitor.getSystemIdleTime();
+    currentIdleSeconds = process.platform === 'linux' ? getLinuxIdleSeconds() : powerMonitor.getSystemIdleTime();
   } catch (_) {}
 
   return {
@@ -329,15 +353,31 @@ async function syncAttendanceStatus() {
       publishState();
       void sendHeartbeat();
     } else if (!isClockedInOnServer && tracking) {
-      console.log('Employee clocked out on web portal. Stopping activity tracking...');
+      console.log('Employee clocked out on web portal or inactivity timeout. Stopping activity tracking...');
       tracking = false;
-      lastError = '';
+      const wasAuto = attendance?.autoClockedOut;
+      lastError = wasAuto
+        ? 'Tracking paused due to 15+ minutes of inactivity or system sleep. Click Start tracking to resume.'
+        : 'Attendance stopped. Click Start tracking to resume.';
       try {
         saveSession();
       } catch (err) {
         console.error('Unable to save tracking state:', err);
       }
       publishState();
+
+      if (Notification.isSupported()) {
+        try {
+          const iconPath = path.join(__dirname, 'icon.png');
+          new Notification({
+            title: 'Attendance Paused',
+            body: wasAuto
+              ? 'Tracking paused due to 15+ minutes of inactivity/sleep. Click Start tracking to resume.'
+              : 'Attendance tracking has been stopped.',
+            icon: fs.existsSync(iconPath) ? iconPath : undefined,
+          }).show();
+        } catch (_) {}
+      }
     }
   } catch (error) {
     const statusCode = error.response && error.response.status;
@@ -705,8 +745,11 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => {
     forcedStatus = null;
     publishState();
-    void syncAttendanceStatus();
-    void sendHeartbeat();
+    // Allow 5 seconds for network interface & WiFi to reconnect on Linux Mint / laptops
+    setTimeout(() => {
+      void syncAttendanceStatus();
+      void sendHeartbeat();
+    }, 5000);
   });
   powerMonitor.on('shutdown', async () => {
     if (session && tracking) {
