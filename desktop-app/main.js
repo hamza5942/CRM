@@ -32,7 +32,7 @@ const IDLE_THRESHOLD_SECONDS = Math.max(
   1,
   Number.parseInt(process.env.IDLE_THRESHOLD_SECONDS, 10) || 180
 );
-const DEFAULT_API_BASE = 'https://crm-backend-sepia-mu.vercel.app/api';
+const DEFAULT_API_BASE = 'https://api.codexsolutions.pro/api';
 let rawApiBase = (process.env.API_BASE_URL || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
 if (!rawApiBase.endsWith('/api')) {
   rawApiBase += '/api';
