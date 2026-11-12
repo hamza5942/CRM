@@ -3,8 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import AuthShell from "../components/AuthShell";
 import "./globals.css";
 
-export const instant = false;
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
