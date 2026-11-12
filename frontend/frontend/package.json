@@ -4,17 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "lucide-react": "^1.58.0",
     "next": "16.4.2",
+    "postcss": "^8.5.32",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "socket.io-client": "^4.8.4",
